@@ -70,6 +70,7 @@ type App struct {
 	lastScan  time.Time
 	nextScan  time.Time
 	trigger   chan struct{}
+	nav       string
 	saveMu    sync.Mutex
 	updStatus string
 }
@@ -746,10 +747,10 @@ func (a *App) checkAlerts(an *Analysis) {
 	}
 	for i, c := range fire {
 		if i == 3 {
-			go toast(fmt.Sprintf("%d more alerts", len(fire)-3), "Open Seismo to see all of them.", appURL()+"#alerts")
+			go toast(fmt.Sprintf("%d more alerts", len(fire)-3), "Open Seismo to see all of them.", "seismo://alerts")
 			break
 		}
-		go toast(c.title, c.body, appURL()+"#t="+c.ticker)
+		go toast(c.title, c.body, "seismo://t/"+c.ticker)
 	}
 	a.saveStore()
 }
@@ -786,4 +787,11 @@ func writeJSON(w http.ResponseWriter, v any) {
 func readJSON(r *http.Request, v any) error {
 	defer r.Body.Close()
 	return json.NewDecoder(r.Body).Decode(v)
+}
+
+func (a *App) shutdown() {
+	a.saveStore()
+	a.saveCache()
+	stopTray()
+	os.Exit(0)
 }

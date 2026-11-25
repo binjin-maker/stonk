@@ -53,7 +53,11 @@ func latestRelease() (*relInfo, error) {
 		}
 		return nil, err2
 	}
-	return &relInfo{strings.TrimPrefix(strings.TrimSpace(string(vb)), "v"), "https://raw.githubusercontent.com/" + updRepo + "/main/" + assetName, ""}, nil
+	notes := ""
+	if nb, err := httpGet("https://raw.githubusercontent.com/" + updRepo + "/main/notes.txt"); err == nil {
+		notes = strings.TrimSpace(string(nb))
+	}
+	return &relInfo{strings.TrimPrefix(strings.TrimSpace(string(vb)), "v"), "https://raw.githubusercontent.com/" + updRepo + "/main/" + assetName, notes}, nil
 }
 
 func newerVersion(remote, local string) bool {
@@ -137,6 +141,7 @@ func (a *App) checkUpdate(install bool) {
 	os.WriteFile(filepath.Join(appDir, "updated.txt"), []byte(rel.Tag+"\n"+notes), 0644)
 	log.Printf("updated to %s, restarting", rel.Tag)
 	restarting.Store(true)
+	stopTray()
 	if listener != nil {
 		listener.Close()
 	}

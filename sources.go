@@ -72,6 +72,17 @@ func httpGet(u string) ([]byte, error) {
 	return b, nil
 }
 
+func httpPost(u, body string) {
+	req, err := http.NewRequest("POST", u, strings.NewReader(body))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if resp, err := (&http.Client{Timeout: 3 * time.Second}).Do(req); err == nil {
+		resp.Body.Close()
+	}
+}
+
 func gnSearch(q string) string {
 	return "https://news.google.com/rss/search?q=" + url.QueryEscape(q) + "&hl=en-US&gl=US&ceid=US:en"
 }

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"os"
 	"sort"
 	"strings"
 	"time"
@@ -29,6 +28,14 @@ func (a *App) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/holding/remove", a.hHoldingRemove)
 	mux.HandleFunc("/api/settings", a.hSettings)
 	mux.HandleFunc("/api/feedback", a.hFeedback)
+	mux.HandleFunc("/api/nav", func(w http.ResponseWriter, r *http.Request) {
+		var req struct{ Hash string }
+		readJSON(r, &req)
+		a.mu.Lock()
+		a.nav = req.Hash
+		a.mu.Unlock()
+		writeJSON(w, map[string]bool{"ok": true})
+	})
 	mux.HandleFunc("/api/update", func(w http.ResponseWriter, r *http.Request) {
 		go a.checkUpdate(true)
 		writeJSON(w, map[string]bool{"ok": true})
@@ -42,7 +49,7 @@ func (a *App) Routes(mux *http.ServeMux) {
 		writeJSON(w, map[string]bool{"ok": true})
 	})
 	mux.HandleFunc("/api/testnotify", func(w http.ResponseWriter, r *http.Request) {
-		go toast("Seismo notifications work", "You'll get alerts like this when a big event hits a stock you hold or track.", appURL())
+		go toast("Seismo notifications work", "You'll get alerts like this when a big event hits a stock you hold or track.", "seismo://open")
 		writeJSON(w, map[string]bool{"ok": true})
 	})
 	mux.HandleFunc("/api/alerts/clear", func(w http.ResponseWriter, r *http.Request) {
@@ -55,16 +62,18 @@ func (a *App) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/quit", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]bool{"ok": true})
 		go func() {
-			a.saveStore()
-			a.saveCache()
 			time.Sleep(300 * time.Millisecond)
-			os.Exit(0)
+			a.shutdown()
 		}()
 	})
 }
 
 func (a *App) hState(w http.ResponseWriter, r *http.Request) {
 	pv := a.portfolioView()
+	a.mu.Lock()
+	nav := a.nav
+	a.nav = ""
+	a.mu.Unlock()
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	var market []MarketItem
@@ -108,7 +117,7 @@ func (a *App) hState(w http.ResponseWriter, r *http.Request) {
 		"Sources": stats, "Scanning": a.scanning, "ScanMsg": a.scanMsg, "LastScan": a.lastScan, "NextScan": a.nextScan,
 		"Alerts": a.store.Alerts, "Settings": a.store.Settings, "TheoryCatalog": theoryCatalog, "Watch": a.store.Watch,
 		"NArticles": len(a.articles), "Startup": startupEnabled(), "Now": time.Now(),
-		"Rules": ruleCatalog(), "NCorrections": len(a.store.Overrides), "Version": version, "Update": a.updStatus,
+		"Nav": nav, "Rules": ruleCatalog(), "NCorrections": len(a.store.Overrides), "Version": version, "Update": a.updStatus,
 	}
 	if an := a.an; an != nil {
 		ev := an.Events

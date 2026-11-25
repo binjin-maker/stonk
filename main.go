@@ -21,8 +21,14 @@ const port = 47823
 var appDir string
 
 func main() {
-	background, updated := false, false
-	for _, a := range os.Args[1:] {
+	background, updated, window, winArg := false, false, false, ""
+	for i, a := range os.Args[1:] {
+		if a == "--window" {
+			window = true
+			if i+2 < len(os.Args) {
+				winArg = os.Args[i+2]
+			}
+		}
 		if a == "--background" {
 			background = true
 		}
@@ -36,8 +42,16 @@ func main() {
 	}
 	appDir = filepath.Join(base, "Seismo")
 	os.MkdirAll(appDir, 0755)
-	if lf, err := os.OpenFile(filepath.Join(appDir, "seismo.log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644); err == nil {
+	logName := "seismo.log"
+	if window {
+		logName = "window.log"
+	}
+	if lf, err := os.OpenFile(filepath.Join(appDir, logName), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644); err == nil {
 		log.SetOutput(lf)
+	}
+	if window {
+		runWindow(winArg)
+		return
 	}
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	ln, err := net.Listen("tcp", addr)
@@ -47,7 +61,7 @@ func main() {
 	}
 	if err != nil {
 		if !background {
-			openBrowser(appURL())
+			runWindow("")
 		}
 		return
 	}
@@ -57,6 +71,8 @@ func main() {
 	go app.Run()
 	go app.updateLoop()
 	go postUpdateCleanup()
+	go registerProtocol()
+	startTray(app)
 	sub, _ := fs.Sub(webFS, "web")
 	mux := http.NewServeMux()
 	mux.Handle("/", http.FileServer(http.FS(sub)))
@@ -64,11 +80,11 @@ func main() {
 	if !background && os.Getenv("SEISMO_NOBROWSER") == "" {
 		go func() {
 			time.Sleep(400 * time.Millisecond)
-			openBrowser(appURL())
+			spawnWindow("")
 		}()
 	}
 	if background && !updated {
-		go toast("Seismo is watching the markets", "Running in the background. You'll be notified about big events on your stocks.", appURL())
+		go toast("Seismo is watching the markets", "Running in the tray. You'll be notified about big events on your stocks.", "seismo://open")
 	}
 	log.Println("listening on", appURL())
 	mainMux = mux

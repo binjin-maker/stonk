@@ -265,7 +265,7 @@ function bind(){
   if(tab==='events'){$('#eQ').oninput=e=>{evF.q=e.target.value;render()};$('#eC').onchange=e=>{evF.cls=e.target.value;render()};$('#eD').onchange=e=>{evF.dir=e.target.value;render()};$('#eM').onchange=e=>{evF.mine=e.target.checked;render()}}
   if(tab==='theories'){const save=async ids=>{S.Settings.Theories=ids;await api('/api/settings',S.Settings);render()};m.querySelectorAll('[data-th]').forEach(c=>c.onchange=()=>save([...m.querySelectorAll('[data-th]:checked')].map(x=>x.dataset.th)));$('#thAll').onclick=()=>save(S.TheoryCatalog.map(t=>t.ID));$('#thNone').onclick=()=>save([]);$('#thChart').onclick=()=>save(['box','dow','ma','rsi','macd','boll','fib','obv'])}
   if(tab==='alerts'){$('#tN').onclick=()=>{api('/api/testnotify',{});flash('Test notification sent')};$('#aC').onclick=async()=>{await api('/api/alerts/clear',{});refresh()}}
-  if(tab==='settings'){$('#stSave').onclick=async()=>{const s={...S.Settings,RefreshMin:+$('#stR').value,NotifyOn:$('#stN').checked,NotifyWatch:$('#stW').checked,Sensitivity:$('#stS').value,NoAutoUpdate:!$('#stA').checked};await api('/api/settings',s);if($('#stU').checked!==S.Startup)await api('/api/startup',{On:$('#stU').checked}).catch(e=>flash(e.message));flash('Saved');refresh()};$('#stUpd').onclick=()=>{api('/api/update',{});flash('Checking GitHub for updates…');setTimeout(refresh,4000)};$('#stRst')&&($('#stRst').onclick=async()=>{if(!confirm('Forget all your corrections?'))return;await api('/api/feedback',{Action:'reset'});refresh()});$('#quit').onclick=async()=>{if(!confirm('Stop Seismo? Tracking and notifications will stop until you run it again.'))return;await api('/api/quit',{});document.body.innerHTML='<div class="empty" style="padding:80px">Seismo has stopped. Run the exe again to restart it.</div>'}}
+  if(tab==='settings'){$('#stSave').onclick=async()=>{const s={...S.Settings,RefreshMin:+$('#stR').value,NotifyOn:$('#stN').checked,NotifyWatch:$('#stW').checked,Sensitivity:$('#stS').value,NoAutoUpdate:!$('#stA').checked};await api('/api/settings',s);if($('#stU').checked!==S.Startup)await api('/api/startup',{On:$('#stU').checked}).catch(e=>flash(e.message));flash('Saved');refresh()};$('#stUpd').onclick=()=>{api('/api/update',{});flash('Checking GitHub for updates…');setTimeout(refresh,4000)};$('#stRst')&&($('#stRst').onclick=async()=>{if(!confirm('Forget all your corrections?'))return;await api('/api/feedback',{Action:'reset'});refresh()});$('#quit').onclick=async()=>{if(!confirm('Stop Seismo? Tracking and notifications will stop until you run it again.'))return;await api('/api/quit',{});if(window.closeWindow){window.closeWindow();return}document.body.innerHTML='<div class="empty" style="padding:80px">Seismo has stopped. Run the exe again to restart it.</div>'}}
   document.querySelectorAll('.alert[data-t]').forEach(e=>e.onclick=()=>e.dataset.t&&openCo(e.dataset.t));
 }
 
@@ -386,12 +386,14 @@ function wrongMenu(el){
   m.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>b.dataset.a==='x'?m.remove():send(b.dataset.a));
   const sel=m.querySelector('select');sel&&(sel.onchange=()=>sel.value&&send('relabel',sel.value));
 }
+document.addEventListener('click',ev=>{const ext=ev.target.closest('a[href^="http"]');if(ext&&window.openExternal&&!ext.href.startsWith(location.origin)){ev.preventDefault();window.openExternal(ext.href);return}},false);
 document.addEventListener('click',ev=>{const w=ev.target.closest('[data-wrong],[data-wa]');if(w){ev.preventDefault();ev.stopPropagation();wrongMenu(w)}},true);
 
-let lastVer=null;
-async function refresh(){try{S=await api('/api/state');if(lastVer&&S.Version!==lastVer){location.reload();return}lastVer=S.Version;
+let lastVer=null,lostCount=0;
+async function refresh(){try{S=await api('/api/state');lostCount=0;if(lastVer&&S.Version!==lastVer){location.reload();return}lastVer=S.Version;
+  if(S.Nav){location.hash=S.Nav;hashRoute()}
   const top=S.Alerts?.[0];if(top&&lastAlertTop&&top.At!==lastAlertTop&&document.hidden&&'Notification'in window&&Notification.permission==='granted')new Notification(top.Title,{body:top.Body});lastAlertTop=top?.At||lastAlertTop||'x';
-  render()}catch(e){$('#scan').textContent='Connection lost — is Seismo running?'}}
+  render()}catch(e){lostCount++;$('#scan').textContent=lostCount>3?'Seismo has stopped. Reopen it from the Start menu or the exe.':'Reconnecting…'}}
 function loop(){refresh().finally(()=>setTimeout(loop,S&&S.Scanning?3000:15000))}
 $('#scanBtn').onclick=()=>{api('/api/scan',{});flash('Scan started');setTimeout(refresh,800)};
 function hashRoute(){const h=location.hash;if(h.startsWith('#t='))openCo(decodeURIComponent(h.slice(3)));else if(h==='#alerts')setTab('alerts')}
