@@ -31,6 +31,7 @@ var theoryCatalog = []TheoryInfo{
 	{"fib", "Fibonacci Retracement", "After a big move, pullbacks often stall at 38.2%, 50% or 61.8% of the move. A pullback holding in that zone signals the trend resumes; breaking 78.6% signals reversal."},
 	{"obv", "Volume / OBV (Granville)", "Joe Granville's On-Balance Volume: volume leads price. Rising OBV while price is flat = smart money accumulating; falling OBV while price rises = distribution."},
 	{"contra", "Contrarian (Buffett)", "\"Be fearful when others are greedy and greedy when others are fearful.\" Heavy bad news plus a big drop (without a fatal problem) is a buying opportunity; euphoria plus a big run-up is a warning."},
+	{"candles", "Candlestick Patterns", "Japanese candlestick reading: the shape of each day's open/high/low/close candle and its wicks. Hammers and morning stars after a drop signal reversal up; shooting stars and evening stars after a rally signal reversal down; engulfing candles show one side taking control."},
 	{"emh", "Efficient Market Hypothesis", "Eugene Fama: all public information is already in the price, so nobody can reliably predict moves from news or charts. Expected move ≈ the market's normal drift. The skeptic's baseline."},
 }
 
@@ -429,6 +430,7 @@ func computeTheories(q *Quote, s *Signal) []Theory {
 		}
 	}
 
+	out = append(out, candleTheory(q))
 	out = append(out, th("emh", 0.1, "All public info, including the %d articles found, is assumed already in the $%.2f price. Expected move ≈ normal market drift (~+0.2%% over 2 weeks), with ±%.1f%% random noise.", s.NArticles, px, s.Vol*math.Sqrt(10)))
 	return out
 }

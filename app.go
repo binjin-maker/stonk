@@ -116,6 +116,13 @@ func (a *App) Load() {
 		a.store.Settings.ScanTimes = defaultScanTimes()
 	}
 	a.lastScan = a.store.LastScan
+	var keep []*Holding
+	for _, h := range a.store.Holdings {
+		if h.Invested <= 1e10 && h.Shares <= 1e9 && h.Invested >= 0 && h.Shares >= 0 {
+			keep = append(keep, h)
+		}
+	}
+	a.store.Holdings = keep
 	if b, err := os.ReadFile(filepath.Join(appDir, "cache.json")); err == nil {
 		var arts []*Article
 		if json.Unmarshal(b, &arts) == nil {

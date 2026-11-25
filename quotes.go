@@ -23,6 +23,7 @@ type Quote struct {
 	Vol      float64
 	Spark    []float64
 	Closes   []float64 `json:"-"`
+	Opens    []float64 `json:"-"`
 	Highs    []float64 `json:"-"`
 	Lows     []float64 `json:"-"`
 	Volumes  []float64 `json:"-"`
@@ -77,6 +78,7 @@ func fetchYahoo(sym, host string) *Quote {
 				Indicators struct {
 					Quote []struct {
 						Close  []*float64
+						Open   []*float64
 						High   []*float64
 						Low    []*float64
 						Volume []*float64
@@ -92,7 +94,7 @@ func fetchYahoo(sym, host string) *Quote {
 	res := r.Chart.Result[0]
 	q.Currency = res.Meta.Currency
 	q.Name = firstNonEmpty(res.Meta.LongName, res.Meta.ShortName)
-	var closes, highs, lows, vols []float64
+	var closes, opens, highs, lows, vols []float64
 	var ts []int64
 	at := func(a []*float64, i int, d float64) float64 {
 		if i < len(a) && a[i] != nil && *a[i] > 0 {
@@ -105,6 +107,7 @@ func fetchYahoo(sym, host string) *Quote {
 		for i, c := range qq.Close {
 			if c != nil && i < len(res.Timestamp) && *c > 0 {
 				closes = append(closes, *c)
+				opens = append(opens, at(qq.Open, i, *c))
 				highs = append(highs, at(qq.High, i, *c))
 				lows = append(lows, at(qq.Low, i, *c))
 				vols = append(vols, at(qq.Volume, i, 0))
@@ -127,12 +130,13 @@ func fetchYahoo(sym, host string) *Quote {
 		lows[n-1] = math.Min(lows[n-1], price)
 	} else {
 		closes = append(closes, price)
+		opens = append(opens, price)
 		highs = append(highs, price)
 		lows = append(lows, price)
 		vols = append(vols, 0)
 		ts = append(ts, res.Meta.RegularMarketTime)
 	}
-	q.Highs, q.Lows, q.Volumes, q.Times = highs, lows, vols, ts
+	q.Opens, q.Highs, q.Lows, q.Volumes, q.Times = opens, highs, lows, vols, ts
 	fill(q, closes)
 	return q
 }
@@ -166,6 +170,11 @@ func fetchStooq(sym string) *Quote {
 		if len(r) >= 5 {
 			if v := pf(r[4]); v > 0 {
 				closes = append(closes, v)
+				op := pf(r[1])
+				if op <= 0 {
+					op = v
+				}
+				q.Opens = append(q.Opens, op)
 				q.Highs = append(q.Highs, math.Max(pf(r[2]), v))
 				lo := pf(r[3])
 				if lo <= 0 {
@@ -223,6 +232,12 @@ func fill(q *Quote, closes []float64) {
 	q.Closes = closes
 	if len(q.Highs) != n {
 		q.Highs, q.Lows, q.Volumes = closes, closes, make([]float64, n)
+	}
+	if len(q.Opens) != n {
+		q.Opens = make([]float64, n)
+		for i := range q.Opens {
+			q.Opens[i] = closes[max(0, i-1)]
+		}
 	}
 	if len(q.Times) != n {
 		q.Times = make([]int64, n)

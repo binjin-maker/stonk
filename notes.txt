@@ -1,1 +1,1 @@
-Fixed: Track buttons on Find & Track now work.
+Candlestick charts with wicks + pattern detection, inline Edit, Remove all investments.

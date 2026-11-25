@@ -26,6 +26,14 @@ func (a *App) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/untrack", a.hUntrack)
 	mux.HandleFunc("/api/holding", a.hHolding)
 	mux.HandleFunc("/api/holding/remove", a.hHoldingRemove)
+	mux.HandleFunc("/api/holding/clear", func(w http.ResponseWriter, r *http.Request) {
+		a.mu.Lock()
+		a.store.Holdings = nil
+		a.mu.Unlock()
+		a.saveStore()
+		go a.analyze(false)
+		writeJSON(w, map[string]bool{"ok": true})
+	})
 	mux.HandleFunc("/api/settings", a.hSettings)
 	mux.HandleFunc("/api/feedback", a.hFeedback)
 	mux.HandleFunc("/api/nav", func(w http.ResponseWriter, r *http.Request) {
@@ -175,7 +183,7 @@ func (a *App) hCompany(w http.ResponseWriter, r *http.Request) {
 	held, watch := a.tracked()
 	resp := map[string]any{"Signal": sig, "Events": events, "Company": co, "Held": held[t], "Watched": watch[t]}
 	if q != nil && q.OK {
-		resp["Closes"], resp["Highs"], resp["Lows"], resp["Volumes"], resp["Times"] = q.Closes, q.Highs, q.Lows, q.Volumes, q.Times
+		resp["Opens"], resp["Closes"], resp["Highs"], resp["Lows"], resp["Volumes"], resp["Times"] = q.Opens, q.Closes, q.Highs, q.Lows, q.Volumes, q.Times
 		resp["Quote"] = q
 	}
 	writeJSON(w, resp)
@@ -379,6 +387,10 @@ func (a *App) hHolding(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t := strings.ToUpper(strings.TrimSpace(req.Ticker))
+	if req.Invested < 0 || req.Shares < 0 || req.BuyPrice < 0 || req.Invested > 1e10 || req.Shares > 1e9 || req.BuyPrice > 1e7 {
+		http.Error(w, "that amount doesn't look right (max $10 billion invested, 1 billion shares, $10M per share)", 400)
+		return
+	}
 	if _, err := a.ensureCompany(t); err != nil {
 		http.Error(w, err.Error(), 404)
 		return
