@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Seismo — market event radar</title>
+<link rel="icon" href="icon.png">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--bg:#0a0d12;--p1:#11161e;--p2:#171e29;--p3:#1f2836;--ln:#263142;--tx:#dbe4ef;--mu:#7d8ba0;--up:#22c55e;--upb:#0f2d1b;--dn:#ef4444;--dnb:#331416;--ac:#f5b942;--bl:#5aa9ff;--pu:#b48cff;--mono:ui-monospace,"Cascadia Mono",Consolas,monospace}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.45 "Segoe UI",system-ui,sans-serif}
+a{color:var(--bl);text-decoration:none}a:hover{text-decoration:underline}
+button{font:inherit;cursor:pointer;border:1px solid var(--ln);background:var(--p3);color:var(--tx);border-radius:7px;padding:6px 12px}
+button:hover{border-color:var(--ac)}button.pri{background:var(--ac);color:#111;border-color:var(--ac);font-weight:600}
+button.sm{padding:3px 8px;font-size:12px}button.dng:hover{border-color:var(--dn);color:var(--dn)}
+input,select{font:inherit;background:var(--p1);border:1px solid var(--ln);color:var(--tx);border-radius:7px;padding:7px 10px;outline:none}
+input:focus,select:focus{border-color:var(--ac)}
+header{display:flex;align-items:center;gap:14px;padding:10px 18px;background:var(--p1);border-bottom:1px solid var(--ln);position:sticky;top:0;z-index:20}
+.logo{font-weight:800;letter-spacing:.5px;font-size:18px;display:flex;align-items:center;gap:8px}
+.logo svg{display:block}
+.pill{font:600 11px var(--mono);padding:3px 8px;border-radius:99px;background:var(--p3);color:var(--mu);white-space:nowrap}
+.pill.g{background:var(--upb);color:var(--up)}.pill.r{background:var(--dnb);color:var(--dn)}.pill.y{background:#33280f;color:var(--ac)}
+.grow{flex:1}.mu{color:var(--mu)}.mono{font-family:var(--mono)}.up{color:var(--up)}.dn{color:var(--dn)}.small{font-size:12px}
+#tape{display:flex;gap:0;overflow-x:auto;background:#0d1118;border-bottom:1px solid var(--ln);scrollbar-width:none}
+.tk{padding:6px 14px;border-right:1px solid var(--ln);white-space:nowrap;font:12px var(--mono);display:flex;gap:8px;align-items:center}
+.tk b{color:var(--mu);font-weight:600}
+nav{display:flex;gap:2px;padding:0 14px;background:var(--p1);border-bottom:1px solid var(--ln);overflow-x:auto}
+nav a{padding:10px 14px;color:var(--mu);border-bottom:2px solid transparent;white-space:nowrap;font-weight:600}
+nav a.on{color:var(--tx);border-color:var(--ac)}nav a:hover{text-decoration:none;color:var(--tx)}
+nav .badge{background:var(--dn);color:#fff;border-radius:99px;font-size:10px;padding:1px 6px;margin-left:4px}
+main{padding:18px;max-width:1500px;margin:0 auto}
+.grid{display:grid;gap:14px}.g2{grid-template-columns:repeat(auto-fit,minmax(min(620px,100%),1fr))}.g3{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.card{background:var(--p1);border:1px solid var(--ln);border-radius:12px;padding:14px 16px;overflow-x:auto;min-width:0}
+.card h3{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--mu)}
+.big{font:700 28px var(--mono)}
+.kv{display:flex;gap:22px;flex-wrap:wrap}.kv div{display:flex;flex-direction:column}.kv span{font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:.5px}.kv b{font:600 17px var(--mono)}
+table{width:100%;border-collapse:collapse}th,td{padding:7px 8px;text-align:left;border-bottom:1px solid var(--ln);white-space:nowrap}
+th{font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;cursor:pointer;user-select:none;position:sticky;top:0;background:var(--p1)}
+tr.cl{cursor:pointer}tr.cl:hover td{background:var(--p2)}td.num{font-family:var(--mono);text-align:right}th.num{text-align:right}
+.ol{font:700 11px var(--mono);padding:2px 7px;border-radius:5px;display:inline-block}
+.l2{background:var(--up);color:#04170b}.l1{background:var(--upb);color:var(--up)}.l0{background:var(--p3);color:var(--mu)}.l-1{background:var(--dnb);color:var(--dn)}.l-2{background:var(--dn);color:#fff}
+.cls{font:700 10px var(--mono);padding:2px 6px;border-radius:4px;letter-spacing:.4px}
+.c-TEMPORARY{background:#13283f;color:var(--bl)}.c-WELL-KNOWN{background:#2a2140;color:var(--pu)}.c-PERMANENT{background:#3a2a0c;color:var(--ac)}.c-PRICE{background:var(--p3);color:var(--mu)}
+.fl1{color:var(--ac)}.fl2{color:#ff8a3d;font-weight:700}.fl3{color:var(--dn);font-weight:800}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{font:600 11px var(--mono);padding:3px 7px;border-radius:5px;background:var(--p3);color:var(--mu);border:1px solid transparent;white-space:nowrap}
+.chip.v-UP{background:var(--upb);color:var(--up)}.chip.v-LEAN-UP{color:var(--up);border-color:#1d4d30}.chip.v-DOWN{background:var(--dnb);color:var(--dn)}.chip.v-LEAN-DOWN{color:var(--dn);border-color:#5a2226}
+.chip.cons{border-color:var(--ac)}
+.ev{border:1px solid var(--ln);border-left:4px solid var(--mu);border-radius:10px;padding:11px 13px;background:var(--p1);margin-bottom:10px}
+.ev.d1{border-left-color:var(--up)}.ev.d-1{border-left-color:var(--dn)}
+.ev .hd{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ev .eff{color:#b7c2d1;margin:6px 0 4px;font-size:13px}
+.ev ul{margin:6px 0 0;padding-left:18px;font-size:12.5px}.ev li{margin:2px 0}
+.note{font-size:12px;color:var(--pu);margin-top:3px}
+.hold{display:grid;grid-template-columns:1fr auto;gap:10px;border:1px solid var(--ln);background:var(--p1);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+.hold .tt{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}.hold .tt b{font:800 18px var(--mono)}
+.fc{font-size:13px;color:#c3cddb;margin-top:8px;max-width:1000px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.form{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}.form label{display:flex;flex-direction:column;font-size:11px;color:var(--mu);gap:3px;text-transform:uppercase;letter-spacing:.4px}
+.ac{position:relative}.acl{position:absolute;top:100%;left:0;right:0;z-index:30;background:var(--p2);border:1px solid var(--ln);border-radius:8px;max-height:320px;overflow:auto;min-width:340px}
+.acl div{padding:7px 10px;cursor:pointer;display:flex;gap:8px}.acl div:hover{background:var(--p3)}
+.hit{display:flex;gap:10px;align-items:center;padding:9px 12px;border:1px solid var(--ln);border-radius:9px;margin-bottom:6px;background:var(--p1);cursor:pointer}
+.hit:hover{border-color:var(--ac)}
+#modal{position:fixed;inset:0;background:#000a;z-index:50;display:none;overflow:auto;padding:30px 14px}
+#modal .box{max-width:1100px;margin:0 auto;background:var(--bg);border:1px solid var(--ln);border-radius:14px;padding:20px}
+.x{float:right}
+canvas{width:100%;display:block}
+.bar{height:8px;border-radius:4px;background:var(--p3);position:relative;overflow:hidden}.bar i{position:absolute;top:0;bottom:0}
+.sect{display:grid;grid-template-columns:110px 1fr 60px;gap:8px;align-items:center;font-size:12.5px;margin:4px 0}
+.th{border:1px solid var(--ln);border-radius:10px;padding:10px 12px;background:var(--p1);margin-bottom:8px}
+.th .n{font-weight:700}.th.off{opacity:.5}
+.alert{display:flex;gap:10px;padding:9px 12px;border-radius:9px;border:1px solid var(--ln);background:var(--p1);margin-bottom:7px;cursor:pointer}
+.alert.bad{border-left:4px solid var(--dn)}.alert.good{border-left:4px solid var(--up)}
+.empty{color:var(--mu);padding:20px;text-align:center}
+.spin{display:inline-block;width:10px;height:10px;border:2px solid var(--ac);border-top-color:transparent;border-radius:50%;animation:s 1s linear infinite}
+@keyframes s{to{transform:rotate(360deg)}}
+footer{color:var(--mu);font-size:11px;text-align:center;padding:20px}
+.toggle{display:flex;gap:8px;align-items:center;cursor:pointer}
+.wrong{font-size:11px;color:var(--mu);cursor:pointer;border:1px solid var(--ln);border-radius:5px;padding:1px 7px;background:none}
+.wrong:hover{color:var(--ac);border-color:var(--ac)}
+.wx{color:var(--mu);cursor:pointer;margin-left:6px;font-size:11px;opacity:.55}.wx:hover{color:var(--dn);opacity:1}
+.wmenu{margin-top:8px;padding:10px;border:1px dashed var(--ac);border-radius:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:var(--p2)}
+#toast{position:fixed;bottom:18px;right:18px;background:var(--p2);border:1px solid var(--ac);padding:10px 14px;border-radius:9px;display:none;z-index:60}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo" id="logo"><svg width="26" height="20" viewBox="0 0 26 20"><polyline points="0,10 5,10 8,3 11,17 14,6 17,13 19,10 26,10" fill="none" stroke="#f5b942" stroke-width="2.2" stroke-linejoin="round"/></svg>SEISMO</div>
+  <span id="mstat" class="pill">—</span>
+  <span id="regime" class="pill">—</span>
+  <span id="scan" class="mu small"></span>
+  <div class="grow"></div>
+  <span id="counts" class="mu small mono"></span>
+  <button id="scanBtn" class="sm">Scan now</button>
+</header>
+<div id="tape"></div>
+<nav id="nav"></nav>
+<main id="main"></main>
+<footer>Seismo reads public news and price data and runs it through rule-based models. Its forecasts are estimates, not financial advice.</footer>
+<div id="modal"><div class="box" id="mbox"></div></div>
+<div id="toast"></div>
+<script>
+const $=s=>document.querySelector(s);
+let S=null,tab=localStorage.getItem('tab')||'dash',sortK={sig:['Expected',1]},evF={cls:'',dir:'',mine:false,q:''},sigF={q:'',sector:'',ol:''},lastAlertTop=null;
+const TABS=[['dash','Dashboard'],['port','My Portfolio'],['find','Find & Track'],['signals','All Signals'],['events','Events'],['world','World'],['theories','Theories'],['alerts','Alerts'],['sources','Sources'],['settings','Settings']];
+const TSHORT={news:'NEWS',box:'BOX THEORY',dow:'DOW THEORY',ma:'GOLDEN CROSS',rsi:'RSI',macd:'MACD',boll:'BOLLINGER',meanrev:'MEAN REVERSION',mom:'MOMENTUM',fib:'FIBONACCI',obv:'VOLUME/OBV',contra:'CONTRARIAN',emh:'EFFICIENT MKT'};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pct=(x,d=1)=>(x>=0?'+':'')+(+x).toFixed(d)+'%';
+const cpct=(x,d=1)=>`<span class="${x>=0?'up':'dn'}">${pct(x,d)}</span>`;
+const money=x=>{const n=Math.abs(x);return (x<0?'-':'')+'$'+n.toLocaleString(undefined,{minimumFractionDigits:n<1000?2:0,maximumFractionDigits:n<1000?2:0})};
+const smoney=x=>`<span class="${x>=0?'up':'dn'}">${x>=0?'+':''}${money(x)}</span>`;
+const price=x=>x>=1000?x.toLocaleString(undefined,{maximumFractionDigits:0}):x>=1?x.toFixed(2):x.toFixed(4);
+const ago=t=>{const s=(Date.now()-new Date(t))/1000;if(s<90)return 'just now';if(s<3600)return Math.round(s/60)+'m ago';if(s<86400)return Math.round(s/3600)+'h ago';return Math.round(s/86400)+'d ago'};
+const ol=(o,l)=>`<span class="ol l${l}">${esc(o)}</span>`;
+const fl=(f,lbl)=>`<span class="fl${f}">${esc(lbl||['Low','Elevated','High','Severe'][f])}</span>`;
+const cls=c=>c?`<span class="cls c-${c}">${c}</span>`:'';
+function flash(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',3000)}
+async function api(p,body){const r=await fetch(p,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});if(!r.ok)throw new Error((await r.text())||r.status);return r.json()}
+
+function enabledTheories(){return (S&&S.Settings.Theories&&S.Settings.Theories.length)?S.Settings.Theories:['news','box','dow']}
+function consensus(ths){const en=enabledTheories();const t=(ths||[]).filter(x=>en.includes(x.ID));if(!t.length)return null;let s=0,u=0,d=0,n=0;for(const x of t){s+=x.Score;if(x.Score>=0.4)u++;else if(x.Score<=-0.4)d++;else n++}s/=t.length;const v=s>=1?'UP':s>=0.35?'LEAN UP':s<=-1?'DOWN':s<=-0.35?'LEAN DOWN':'NEUTRAL';return {v,u,d,n,s}}
+function theoryChips(ths,withCons=true){const en=enabledTheories();const t=(ths||[]).filter(x=>en.includes(x.ID));if(!t.length)return '';const c=consensus(ths);let h='<div class="chips">';if(withCons&&c)h+=`<span class="chip cons v-${c.v.replace(' ','-')}" title="${c.u} up / ${c.d} down / ${c.n} neutral">CONSENSUS: ${c.v} (${c.u}↑ ${c.d}↓ ${c.n}–)</span>`;for(const x of t)h+=`<span class="chip v-${x.Verdict.replace(' ','-')}" title="${esc(x.Detail)}">${TSHORT[x.ID]||x.ID}: ${x.Verdict}</span>`;return h+'</div>'}
+
+function spark(arr,w=120,h=30){if(!arr||arr.length<2)return '';const mn=Math.min(...arr),mx=Math.max(...arr),r=mx-mn||1;const pts=arr.map((v,i)=>`${(i/(arr.length-1)*w).toFixed(1)},${(h-2-(v-mn)/r*(h-4)).toFixed(1)}`).join(' ');const c=arr[arr.length-1]>=arr[0]?'#22c55e':'#ef4444';return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${pts}" fill="none" stroke="${c}" stroke-width="1.5"/></svg>`}
+
+function renderNav(){const nAl=(S?.Alerts||[]).filter(a=>new Date(a.At)>new Date(localStorage.getItem('alSeen')||0)).length;$('#nav').innerHTML=TABS.map(([k,n])=>`<a href="#" data-t="${k}" class="${tab===k?'on':''}">${n}${k==='alerts'&&nAl?`<span class="badge">${nAl}</span>`:''}</a>`).join('');$('#nav').querySelectorAll('a').forEach(a=>a.onclick=e=>{e.preventDefault();setTab(a.dataset.t)})}
+function setTab(t){tab=t;localStorage.setItem('tab',t);if(t==='alerts')localStorage.setItem('alSeen',new Date().toISOString());render()}
+
+function renderTop(){
+  const m=S.MarketStatus;$('#mstat').className='pill '+(m==='OPEN'?'g':m==='CLOSED'?'':'y');$('#mstat').textContent='NYSE '+m;
+  const r=S.Regime;$('#regime').className='pill '+(r.includes('RISK-ON')?'g':r==='FEAR'||r==='RISK-OFF'?'r':'');$('#regime').textContent=r;$('#regime').title=S.RegimeNote;
+  $('#logo').title='Seismo v'+S.Version;
+  $('#scan').innerHTML=S.Scanning?`<span class="spin"></span> ${esc(S.ScanMsg)}`:`${esc(S.ScanMsg||'')}${S.NextScan&&new Date(S.NextScan)>new Date()?` · next in ${Math.max(0,Math.round((new Date(S.NextScan)-Date.now())/60000))}m`:''}`;
+  const ok=(S.Sources||[]).filter(s=>s.OK).length;$('#counts').textContent=`${(S.NArticles||0).toLocaleString()} articles · ${ok}/${(S.Sources||[]).length} sources · ${S.NCompanies||0} cos`;
+  $('#tape').innerHTML=(S.Market||[]).map(x=>`<div class="tk"><b>${esc(x.Name)}</b>${x.OK?`${price(x.Price)} ${cpct(x.DayPct,2)} ${spark(x.Spark,50,16)}`:'<span class="mu">—</span>'}</div>`).join('');
+}
+
+function sigRow(s){return `<tr class="cl" data-t="${s.Ticker}"><td><b class="mono">${esc(s.Ticker)}</b> <span class="mu small">${esc(s.Name)}</span>${s.Held?' <span class="pill y">HELD</span>':s.Watched?' <span class="pill">WATCH</span>':''}</td><td class="num">${s.HasQuote?price(s.Price):'—'}</td><td class="num">${s.HasQuote?cpct(s.DayPct,2):'—'}</td><td>${ol(s.Outlook,s.OutlookLvl)}</td><td class="num">${cpct(s.Expected)}</td><td class="num">${s.Confidence}%</td><td>${fl(s.Flight,s.FlightLabel)}</td><td class="small mu">${esc(s.Drivers?.[0]?.Label||'')}</td></tr>`}
+const sigHead=`<tr><th>Company</th><th class="num">Price</th><th class="num">Day</th><th>Outlook</th><th class="num">Exp. move</th><th class="num">Conf.</th><th>Flight risk</th><th>Main driver</th></tr>`;
+
+function evCard(c){
+  const t=c.Kind==='macro';
+  return `<div class="ev d${c.Dir}"><div class="hd">${t?'<span class="pill">WORLD</span>':`<a href="#" class="mono" data-co="${c.Ticker}"><b>${esc(c.Ticker)}</b></a> <span class="mu">${esc(c.Name)}</span>`}
+  <b>${c.Dir>0?'▲':c.Dir<0?'▼':'◆'} ${esc(c.Label)}</b> ${cls(c.Class)} ${!t?`<span class="mono small">${cpct(c.Impact)}</span>`:''}
+  ${c.Dir<0&&c.Flight>=2?`<span class="small">flight risk ${fl(c.Flight)}</span>`:''}<span class="grow"></span><span class="mu small">${c.NSources} sources · ${c.NArticles} articles · ${ago(c.LastSeen)}</span><button class="wrong" data-wrong="1" data-t="${esc(c.Ticker||'')}" data-e="${esc(c.EventID)}" data-k="${c.Kind}" data-l="${esc(c.Label)}" title="Tell Seismo it got this wrong">Wrong?</button></div>
+  <div class="eff">${esc(c.Effect)}</div>${c.Note?`<div class="note">${esc(c.Note)}</div>`:''}
+  ${t&&c.Sectors?`<div class="chips" style="margin-top:6px">${Object.entries(c.Sectors).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])).map(([k,v])=>`<span class="chip v-${v>0?'UP':'DOWN'}">${k==='broad'?'Whole market':k} ${v>0?'+':''}${v}</span>`).join('')}</div>`:''}
+  <ul>${(c.Articles||[]).slice(0,5).map(a=>`<li><a href="${esc(a.URL)}" target="_blank" rel="noopener">${esc(a.Title)}</a> <span class="mu">— ${esc(a.Source)}, ${ago(a.Published)}${a.Hedged?' · speculative':''}</span><span class="wx" data-wa="${esc(a.ID)}" data-t="${esc(c.Ticker||'')}" data-e="${esc(c.EventID)}" data-k="${c.Kind}" data-l="${esc(c.Label)}" title="This headline is misread">✕</span></li>`).join('')}</ul></div>`}
+
+function dash(){
+  const P=S.Portfolio,sig=S.Signals||[];
+  const ups=sig.filter(s=>s.Expected>0).sort((a,b)=>b.Expected-a.Expected).slice(0,8),dns=sig.filter(s=>s.Expected<0).sort((a,b)=>a.Expected-b.Expected).slice(0,8);
+  const perm=(S.Events||[]).filter(e=>e.Class==='PERMANENT'&&Math.abs(e.Impact)>=1).slice(0,6);
+  const fr=sig.filter(s=>s.Flight>=2).slice(0,10);
+  return `<div class="grid g2">
+  <div class="card"><h3>My portfolio</h3>${P.Holdings?.length?`<div class="kv"><div><span>Value</span><b>${money(P.Value)}</b></div><div><span>Invested</span><b>${money(P.Invested)}</b></div><div><span>Total P/L</span><b>${smoney(P.PL)} ${cpct(P.PLPct)}</b></div><div><span>Today</span><b>${smoney(P.DayPL)}</b></div><div><span>Model outlook (≈2 wks)</span><b>${smoney(P.ExpUSD)} ${cpct(P.ExpPct)}</b></div></div>
+   <table style="margin-top:10px">${P.Holdings.map(h=>`<tr class="cl" data-t="${h.Ticker}"><td><b class="mono">${h.Ticker}</b> <span class="mu small">${esc(h.Name)}</span></td><td class="num">${money(h.Value)}</td><td class="num">${cpct(h.PLPct)}</td><td>${ol(h.Outlook,h.OutlookLvl)}</td><td class="num">${smoney(h.ExpUSD)}</td><td>${fl(h.Flight,h.FlightLabel)}</td></tr>`).join('')}</table>`
+   :`<div class="empty">No investments yet. <a href="#" onclick="setTab('port');return false">Add what you've invested</a> and Seismo will track it 24/7 and alert you to big events.</div>`}</div>
+  <div class="card"><h3>Latest alerts</h3>${(S.Alerts||[]).slice(0,6).map(alertRow).join('')||'<div class="empty">No alerts yet. Big events on stocks you hold or track show up here and as Windows notifications.</div>'}</div>
+  <div class="card"><h3>Predicted to go UP</h3><table>${sigHead}${ups.map(sigRow).join('')}</table></div>
+  <div class="card"><h3>Predicted to go DOWN</h3><table>${sigHead}${dns.map(sigRow).join('')}</table></div>
+  <div class="card"><h3>Permanent / structural events</h3>${perm.map(evCard).join('')||'<div class="empty">None right now.</div>'}</div>
+  <div class="card"><h3>Investor-flight watch</h3>${fr.length?`<table>${sigHead}${fr.map(sigRow).join('')}</table>`:'<div class="empty">No company currently has high investor-flight risk.</div>'}
+   <h3 style="margin-top:16px">World events in play</h3>${(S.Macro||[]).slice(0,4).map(m=>`<div class="row" style="margin:4px 0">${cls(m.Class)} <b>${esc(m.Label)}</b> <span class="mu small">${m.NSources} sources</span></div>`).join('')||'<span class="mu">—</span>'}</div>
+  </div>`}
+
+function alertRow(a){return `<div class="alert ${a.Level}" data-t="${esc(a.Ticker)}"><div style="flex:1"><b>${esc(a.Title)}</b><div class="small">${esc(a.Body)}</div></div><span class="mu small">${ago(a.At)}</span></div>`}
+
+function holdCard(h){
+  return `<div class="hold"><div><div class="tt"><b>${h.Ticker}</b><span>${esc(h.Name)}</span>${ol(h.Outlook,h.OutlookLvl)}<span class="small">flight risk ${fl(h.Flight,h.FlightLabel||'Low')}</span></div>
+  <div class="kv" style="margin-top:8px"><div><span>Invested</span><b>${money(h.Invested)}</b></div><div><span>Shares</span><b>${(+h.Shares).toFixed(h.Shares<10?4:2)}</b></div><div><span>Avg cost</span><b>${price(h.BuyPrice)}</b></div><div><span>Price</span><b>${h.HasQuote?price(h.Price):'—'}</b></div><div><span>Value</span><b>${money(h.Value)}</b></div><div><span>P/L</span><b>${smoney(h.PL)} ${cpct(h.PLPct)}</b></div><div><span>Today</span><b>${h.HasQuote?smoney(h.DayPL):'—'}</b></div><div><span>Model outlook</span><b>${smoney(h.ExpUSD)}</b></div><div><span>Range</span><b class="small">${smoney(h.LowUSD)} … ${smoney(h.HighUSD)}</b></div></div>
+  <div style="margin-top:8px">${theoryChips(h.Theories)}</div>
+  <div class="fc">${esc(h.Forecast||'Gathering news and price data for this stock…')}</div></div>
+  <div style="text-align:right;display:flex;flex-direction:column;gap:6px;align-items:flex-end">${spark(h.Spark,180,50)}<div class="row"><button class="sm" data-t="${h.Ticker}">Details</button><button class="sm" data-edit="${h.Ticker}">Edit</button><button class="sm dng" data-rm="${h.Ticker}">Remove</button></div></div></div>`}
+
+function port(){
+  const P=S.Portfolio,W=(S.Watch||[]),sig=Object.fromEntries((S.Signals||[]).map(s=>[s.Ticker,s]));
+  return `<div class="card" style="margin-bottom:14px"><h3>Add an investment</h3>
+  <div class="form"><label class="ac">Company or ticker<input id="hT" placeholder="e.g. Nvidia or NVDA" autocomplete="off" style="width:240px"><div class="acl" id="hAC" style="display:none"></div></label>
+  <label>Amount invested ($)<input id="hI" type="number" step="any" placeholder="1000" style="width:130px"></label>
+  <label>…or shares<input id="hS" type="number" step="any" placeholder="optional" style="width:110px"></label>
+  <label>Buy price ($/share)<input id="hP" type="number" step="any" placeholder="blank = today's price" style="width:170px"></label>
+  <button class="pri" id="hAdd">Add &amp; track</button></div>
+  <div class="mu small" style="margin-top:6px">Adding again to the same ticker averages into your position. Seismo starts tracking it right away: targeted news sweeps, price monitoring, and notifications.</div></div>
+  ${P.Holdings?.length?`<div class="card" style="margin-bottom:14px"><div class="kv"><div><span>Value</span><b>${money(P.Value)}</b></div><div><span>Invested</span><b>${money(P.Invested)}</b></div><div><span>Total P/L</span><b>${smoney(P.PL)} ${cpct(P.PLPct)}</b></div><div><span>Today</span><b>${smoney(P.DayPL)} ${cpct(P.DayPct||0,2)}</b></div><div><span>Model outlook (≈2 wks)</span><b>${smoney(P.ExpUSD)} ${cpct(P.ExpPct)}</b></div></div></div>`+P.Holdings.map(holdCard).join(''):''}
+  <div class="card"><h3>Watchlist (tracked 24/7, no money in)</h3>${W.length?`<table>${sigHead.replace('</tr>','<th></th></tr>')}${W.map(t=>sig[t]?sigRow(sig[t]).replace('</tr>',`<td><button class="sm dng" data-unw="${t}">Untrack</button></td></tr>`):`<tr><td class="mono">${t}</td><td colspan="7" class="mu">loading…</td><td><button class="sm dng" data-unw="${t}">Untrack</button></td></tr>`).join('')}</table>`:'<div class="empty">Nothing on your watchlist. Use <a href="#" onclick="setTab(\'find\');return false">Find &amp; Track</a>.</div>'}</div>`}
+
+function find(){return `<div class="card"><h3>Find a company</h3><div class="row"><input id="fQ" placeholder="Type a company name or ticker…" style="width:420px" autocomplete="off"><button class="pri" id="fGo">Search</button></div><div id="fRes" style="margin-top:12px"></div></div><div id="fPeers" style="margin-top:14px"></div>`}
+
+async function doFind(q){if(!q)return;$('#fRes').innerHTML='<span class="spin"></span>';try{const hits=await api('/api/search?q='+encodeURIComponent(q));$('#fRes').innerHTML=hits.length?hits.map(h=>`<div class="hit" data-pick="${esc(h.Symbol)}"><b class="mono" style="width:90px">${esc(h.Symbol)}</b><span style="flex:1">${esc(h.Name)}</span><span class="mu small">${esc([h.Exchange,h.Sector||'',h.Industry||''].filter(Boolean).join(' · '))}</span><button class="sm" data-trk="${esc(h.Symbol)}">Track</button><button class="sm" data-inv="${esc(h.Symbol)}">Invest</button></div>`).join(''):'<div class="empty">No matches.</div>';if(hits[0])loadPeers(hits[0].Symbol,hits[0].Name)}catch(e){$('#fRes').innerHTML='<div class="empty">Search failed: '+esc(e.message)+'</div>'}}
+
+async function loadPeers(t,name,target='#fPeers'){const el=$(target);if(!el)return;el.innerHTML=`<div class="card"><h3>Most similar to ${esc(name||t)}</h3><span class="spin"></span></div>`;try{const p=await api('/api/peers?t='+encodeURIComponent(t));el.innerHTML=`<div class="card"><h3>Most similar to ${esc(name||t)}</h3>${p.length?`<table><tr><th>Company</th><th class="num">Price</th><th class="num">Day</th><th>Outlook</th><th>Why similar</th><th></th></tr>${p.map(x=>`<tr class="cl" data-t="${esc(x.Symbol)}"><td><b class="mono">${esc(x.Symbol)}</b> <span class="mu small">${esc(x.Name)}</span></td><td class="num">${x.HasQuote?price(x.Price):'—'}</td><td class="num">${x.HasQuote?cpct(x.DayPct,2):'—'}</td><td>${x.Outlook==='—'?'<span class="mu">no news yet</span>':ol(x.Outlook,x.OutlookLvl)}</td><td class="mu small">${esc(x.Reason)}</td><td>${x.Tracked?'<span class="pill y">TRACKED</span>':`<button class="sm" data-trk="${esc(x.Symbol)}">Track</button>`}</td></tr>`).join('')}</table>`:'<div class="empty">No similar companies found.</div>'}</div>`}catch(e){el.innerHTML=''}}
+
+function signals(){
+  let sig=(S.Signals||[]).slice();const q=sigF.q.toLowerCase();
+  if(q)sig=sig.filter(s=>(s.Ticker+' '+s.Name).toLowerCase().includes(q));if(sigF.sector)sig=sig.filter(s=>s.Sector===sigF.sector);if(sigF.ol)sig=sig.filter(s=>String(s.OutlookLvl)===sigF.ol);
+  const [k,d]=sortK.sig;sig.sort((a,b)=>(typeof a[k]==='string'?a[k].localeCompare(b[k]):(k==='Expected'?Math.abs(b[k])-Math.abs(a[k]):b[k]-a[k]))*d);
+  const sectors=[...new Set((S.Signals||[]).map(s=>s.Sector))].sort();
+  return `<div class="card"><div class="row" style="margin-bottom:10px"><input id="sQ" placeholder="Filter…" value="${esc(sigF.q)}"><select id="sSec"><option value="">All sectors</option>${sectors.map(s=>`<option ${s===sigF.sector?'selected':''}>${s}</option>`).join('')}</select><select id="sOl"><option value="">Any outlook</option>${[[2,'Strong up'],[1,'Up'],[0,'Flat'],[-1,'Down'],[-2,'Strong down']].map(([v,n])=>`<option value="${v}" ${sigF.ol==String(v)?'selected':''}>${n}</option>`).join('')}</select><span class="mu small">${sig.length} companies · click a column to sort</span></div>
+  <table><tr><th data-s="Ticker">Company</th><th class="num" data-s="Price">Price</th><th class="num" data-s="DayPct">Day</th><th data-s="OutlookLvl">Outlook</th><th class="num" data-s="Expected">Exp. move</th><th class="num" data-s="Confidence">Conf.</th><th data-s="Flight">Flight risk</th><th>Main driver</th><th>Theories</th></tr>
+  ${sig.map(s=>sigRow(s).replace(/<\/tr>$/,`<td>${(()=>{const c=consensus(s.Theories);return c?`<span class="chip v-${c.v.replace(' ','-')}">${c.v}</span>`:''})()}</td></tr>`)).join('')}</table></div>`}
+
+function events(){
+  let ev=(S.Events||[]).slice();const held=new Set([...(S.Portfolio.Holdings||[]).map(h=>h.Ticker),...(S.Watch||[])]);
+  if(evF.cls)ev=ev.filter(e=>e.Class===evF.cls);if(evF.dir)ev=ev.filter(e=>String(e.Dir)===evF.dir);if(evF.mine)ev=ev.filter(e=>held.has(e.Ticker));
+  if(evF.q){const q=evF.q.toLowerCase();ev=ev.filter(e=>(e.Ticker+' '+e.Name+' '+e.Label+' '+(e.Articles||[]).map(a=>a.Title).join(' ')).toLowerCase().includes(q))}
+  const n=c=>(S.Events||[]).filter(e=>e.Class===c).length;
+  return `<div class="row" style="margin-bottom:12px"><input id="eQ" placeholder="Search events…" value="${esc(evF.q)}"><select id="eC"><option value="">All types (${(S.Events||[]).length})</option><option value="TEMPORARY" ${evF.cls==='TEMPORARY'?'selected':''}>Temporary (${n('TEMPORARY')})</option><option value="WELL-KNOWN" ${evF.cls==='WELL-KNOWN'?'selected':''}>Well-known / priced in (${n('WELL-KNOWN')})</option><option value="PERMANENT" ${evF.cls==='PERMANENT'?'selected':''}>Permanent / structural (${n('PERMANENT')})</option></select>
+  <select id="eD"><option value="">Up &amp; down</option><option value="1" ${evF.dir==='1'?'selected':''}>Positive only</option><option value="-1" ${evF.dir==='-1'?'selected':''}>Negative only</option></select><label class="toggle"><input type="checkbox" id="eM" ${evF.mine?'checked':''}> My stocks only</label></div>
+  <div class="mu small" style="margin-bottom:10px">${cls('TEMPORARY')} short-lived, usually fades in days · ${cls('WELL-KNOWN')} widely covered or scheduled, mostly priced in · ${cls('PERMANENT')} structural, can re-rate the stock or make investors bail</div>
+  ${ev.slice(0,150).map(evCard).join('')||'<div class="empty">No events match.</div>'}`}
+
+function world(){
+  const h=Object.entries(S.SectorHeat||{}).sort((a,b)=>b[1]-a[1]);const mx=Math.max(1,...h.map(x=>Math.abs(x[1])));
+  return `<div class="grid g2"><div class="card"><h3>Sector pressure from world events</h3>${h.map(([k,v])=>`<div class="sect"><span>${k==='broad'?'Whole market':k}</span><div class="bar"><i style="left:${v>=0?50:50-Math.abs(v)/mx*50}%;width:${Math.abs(v)/mx*50}%;background:${v>=0?'var(--up)':'var(--dn)'}"></i><i style="left:50%;width:1px;background:var(--mu)"></i></div><span class="mono small ${v>=0?'up':'dn'}">${v>=0?'+':''}${v.toFixed(2)}</span></div>`).join('')||'<div class="empty">No major world events detected.</div>'}</div>
+  <div class="card"><h3>How world events are read</h3><div class="small mu">Seismo scans world news (Google News world editions, GDELT across 100+ countries, BBC, Al Jazeera, DW, Nikkei, SCMP, Economic Times and more) for macro events: central banks, inflation, tariffs, wars, oil, chip controls, recessions, disasters, crypto, banking stress, shipping chokepoints. Each one pushes on specific sectors, which flows into every company in that sector.</div></div></div>
+  <div style="margin-top:14px">${(S.Macro||[]).map(evCard).join('')||''}</div>`}
+
+function theories(){const en=enabledTheories();return `<div class="card" style="margin-bottom:14px"><h3>Pick the theories you want to see</h3><div class="mu small">Checked theories show up as chips everywhere (portfolio, company pages, signals) and are combined into a consensus vote. Each is computed live from a year of price and volume data plus the news model.</div><div class="row" style="margin-top:10px"><button class="sm" id="thAll">All</button><button class="sm" id="thNone">None</button><button class="sm" id="thChart">Chart-only</button></div></div>
+  ${S.TheoryCatalog.map(t=>`<div class="th ${en.includes(t.ID)?'':'off'}"><label class="toggle"><input type="checkbox" data-th="${t.ID}" ${en.includes(t.ID)?'checked':''}> <span class="n">${esc(t.Name)}</span> <span class="chip">${TSHORT[t.ID]}</span></label><div class="small mu" style="margin-top:4px">${esc(t.Explain)}</div></div>`).join('')}`}
+
+function alerts(){return `<div class="row" style="margin-bottom:12px"><button id="tN">Send test notification</button><button class="dng" id="aC">Clear alerts</button><span class="mu small">Alerts fire for big events on stocks you hold (scaled to how much you have in them) and on your watchlist, plus large daily price moves.</span></div>${(S.Alerts||[]).map(alertRow).join('')||'<div class="empty">No alerts yet.</div>'}`}
+
+function sources(){const g={};for(const s of S.Sources||[])(g[s.Group]=g[s.Group]||[]).push(s);return Object.entries(g).map(([k,v])=>`<div class="card" style="margin-bottom:12px"><h3>${esc(k)} · ${v.filter(x=>x.OK).length}/${v.length} OK · ${v.reduce((a,b)=>a+b.Count,0)} items</h3><table><tr><th>Source</th><th class="num">Items</th><th class="num">ms</th><th>Status</th></tr>${v.map(s=>`<tr><td>${esc(s.Name)}</td><td class="num">${s.Count}</td><td class="num">${s.Ms}</td><td>${s.OK?'<span class="up">OK</span>':`<span class="dn">${esc(s.Err)}</span>`}</td></tr>`).join('')}</table></div>`).join('')||'<div class="empty">First scan in progress…</div>'}
+
+function settings(){const st=S.Settings;return `<div class="card" style="max-width:640px"><h3>Settings</h3>
+  <div class="form" style="flex-direction:column;align-items:flex-start;gap:14px">
+  <label>Full news scan every (minutes)<input id="stR" type="number" min="5" max="240" value="${st.RefreshMin}"></label>
+  <div class="mu small" style="margin-top:-10px">Prices for your stocks and the market tape refresh every 90 seconds regardless.</div>
+  <label class="toggle" style="text-transform:none;font-size:14px;color:var(--tx)"><input type="checkbox" id="stN" ${st.NotifyOn?'checked':''}> Windows notifications for big events</label>
+  <label class="toggle" style="text-transform:none;font-size:14px;color:var(--tx)"><input type="checkbox" id="stW" ${st.NotifyWatch?'checked':''}> Also notify for watchlist stocks</label>
+  <label>Alert sensitivity<select id="stS">${['low','normal','high'].map(x=>`<option ${st.Sensitivity===x?'selected':''}>${x}</option>`).join('')}</select></label>
+  <label class="toggle" style="text-transform:none;font-size:14px;color:var(--tx)"><input type="checkbox" id="stU" ${S.Startup?'checked':''}> Start with Windows (runs in background 24/7)</label>
+  <label class="toggle" style="text-transform:none;font-size:14px;color:var(--tx)"><input type="checkbox" id="stA" ${st.NoAutoUpdate?'':'checked'}> Auto-update from GitHub</label>
+  <div class="row"><span class="mono small">v${esc(S.Version)}</span><span class="mu small">${esc(S.Update||'')}</span><button class="sm" id="stUpd">Check &amp; install updates</button></div>
+  <div class="row"><span class="mu small">${S.NCorrections||0} headline corrections learned from your "Wrong?" feedback</span>${S.NCorrections?'<button class="sm dng" id="stRst">Reset corrections</button>':''}</div>
+  <button class="pri" id="stSave">Save</button>
+  <div style="border-top:1px solid var(--ln);padding-top:14px;width:100%"><div class="mu small" style="margin-bottom:8px">Seismo keeps running in the background after you close this tab. Run the exe again to reopen this window. To stop it completely:</div><button class="dng" id="quit">Quit Seismo</button></div></div></div>`}
+
+function render(){if(!S)return;renderNav();renderTop();const f={dash,port,find,signals,events,world,theories,alerts,sources,settings}[tab]||dash;
+  const keep=document.activeElement&&document.activeElement.id,sel=keep&&document.activeElement.selectionStart;
+  if(tab==='find'&&$('#fQ')){return}
+  if(tab==='port'&&$('#hT')){const v={T:$('#hT').value,I:$('#hI').value,S:$('#hS').value,P:$('#hP').value};$('#main').innerHTML=f();$('#hT').value=v.T;$('#hI').value=v.I;$('#hS').value=v.S;$('#hP').value=v.P}
+  else $('#main').innerHTML=f();
+  if(keep&&$('#'+keep)){const e=$('#'+keep);e.focus();try{e.setSelectionRange(sel,sel)}catch(_){}}
+  bind()}
+
+function bind(){
+  const m=$('#main');
+  m.querySelectorAll('[data-t]').forEach(e=>e.onclick=ev=>{if(ev.target.closest('button,a[href^=http],input'))return;openCo(e.dataset.t)});
+  m.querySelectorAll('button[data-t]').forEach(e=>e.onclick=()=>openCo(e.dataset.t));
+  m.querySelectorAll('[data-co]').forEach(e=>e.onclick=ev=>{ev.preventDefault();openCo(e.dataset.co)});
+  m.querySelectorAll('[data-rm]').forEach(e=>e.onclick=async()=>{if(!confirm('Remove '+e.dataset.rm+' from your portfolio?'))return;await api('/api/holding/remove',{Ticker:e.dataset.rm});refresh()});
+  m.querySelectorAll('[data-edit]').forEach(e=>e.onclick=()=>editHolding(e.dataset.edit));
+  m.querySelectorAll('[data-unw]').forEach(e=>e.onclick=async()=>{await api('/api/untrack',{Ticker:e.dataset.unw});refresh()});
+  m.querySelectorAll('[data-trk]').forEach(e=>e.onclick=async ev=>{ev.stopPropagation();e.disabled=true;try{await api('/api/track',{Ticker:e.dataset.trk});e.textContent='Tracking ✓';flash('Now tracking '+e.dataset.trk+' 24/7');refresh()}catch(x){flash(x.message);e.disabled=false}});
+  m.querySelectorAll('[data-inv]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();setTab('port');setTimeout(()=>{$('#hT').value=e.dataset.inv;$('#hI').focus()},50)});
+  m.querySelectorAll('[data-pick]').forEach(e=>e.onclick=ev=>{if(ev.target.closest('button'))return;loadPeers(e.dataset.pick,e.querySelector('span').textContent);openCo(e.dataset.pick)});
+  m.querySelectorAll('.alert[data-t]').forEach(e=>e.onclick=()=>e.dataset.t&&openCo(e.dataset.t));
+  if(tab==='find'){const go=()=>doFind($('#fQ').value.trim());$('#fGo').onclick=go;$('#fQ').onkeydown=e=>{if(e.key==='Enter')go()};$('#fQ').focus()}
+  if(tab==='port'){
+    $('#hAdd').onclick=addHolding;let tmr;$('#hT').oninput=()=>{clearTimeout(tmr);const q=$('#hT').value.trim();if(q.length<1){$('#hAC').style.display='none';return}tmr=setTimeout(async()=>{const hits=await api('/api/search?q='+encodeURIComponent(q)).catch(()=>[]);const ac=$('#hAC');if(!ac)return;ac.innerHTML=hits.map(h=>`<div data-s="${esc(h.Symbol)}"><b class="mono">${esc(h.Symbol)}</b><span class="mu">${esc(h.Name)}</span></div>`).join('');ac.style.display=hits.length?'block':'none';ac.querySelectorAll('div').forEach(d=>d.onmousedown=()=>{$('#hT').value=d.dataset.s;ac.style.display='none';$('#hI').focus()})},250)};
+    $('#hT').onblur=()=>setTimeout(()=>{const a=$('#hAC');if(a)a.style.display='none'},200)}
+  if(tab==='signals'){$('#sQ').oninput=e=>{sigF.q=e.target.value;render()};$('#sSec').onchange=e=>{sigF.sector=e.target.value;render()};$('#sOl').onchange=e=>{sigF.ol=e.target.value;render()};m.querySelectorAll('th[data-s]').forEach(th=>th.onclick=()=>{const k=th.dataset.s;sortK.sig=[k,sortK.sig[0]===k?-sortK.sig[1]:1];render()})}
+  if(tab==='events'){$('#eQ').oninput=e=>{evF.q=e.target.value;render()};$('#eC').onchange=e=>{evF.cls=e.target.value;render()};$('#eD').onchange=e=>{evF.dir=e.target.value;render()};$('#eM').onchange=e=>{evF.mine=e.target.checked;render()}}
+  if(tab==='theories'){const save=async ids=>{S.Settings.Theories=ids;await api('/api/settings',S.Settings);render()};m.querySelectorAll('[data-th]').forEach(c=>c.onchange=()=>save([...m.querySelectorAll('[data-th]:checked')].map(x=>x.dataset.th)));$('#thAll').onclick=()=>save(S.TheoryCatalog.map(t=>t.ID));$('#thNone').onclick=()=>save([]);$('#thChart').onclick=()=>save(['box','dow','ma','rsi','macd','boll','fib','obv'])}
+  if(tab==='alerts'){$('#tN').onclick=()=>{api('/api/testnotify',{});flash('Test notification sent')};$('#aC').onclick=async()=>{await api('/api/alerts/clear',{});refresh()}}
+  if(tab==='settings'){$('#stSave').onclick=async()=>{const s={...S.Settings,RefreshMin:+$('#stR').value,NotifyOn:$('#stN').checked,NotifyWatch:$('#stW').checked,Sensitivity:$('#stS').value,NoAutoUpdate:!$('#stA').checked};await api('/api/settings',s);if($('#stU').checked!==S.Startup)await api('/api/startup',{On:$('#stU').checked}).catch(e=>flash(e.message));flash('Saved');refresh()};$('#stUpd').onclick=()=>{api('/api/update',{});flash('Checking GitHub for updates…');setTimeout(refresh,4000)};$('#stRst')&&($('#stRst').onclick=async()=>{if(!confirm('Forget all your corrections?'))return;await api('/api/feedback',{Action:'reset'});refresh()});$('#quit').onclick=async()=>{if(!confirm('Stop Seismo? Tracking and notifications will stop until you run it again.'))return;await api('/api/quit',{});document.body.innerHTML='<div class="empty" style="padding:80px">Seismo has stopped. Run the exe again to restart it.</div>'}}
+  document.querySelectorAll('.alert[data-t]').forEach(e=>e.onclick=()=>e.dataset.t&&openCo(e.dataset.t));
+}
+
+async function addHolding(){const b={Ticker:$('#hT').value.trim(),Invested:+$('#hI').value||0,Shares:+$('#hS').value||0,BuyPrice:+$('#hP').value||0};if(!b.Ticker){flash('Enter a company or ticker');return}
+  if(!/^[A-Za-z0-9.\-^=]{1,12}$/.test(b.Ticker)||b.Ticker.includes(' ')){const h=await api('/api/search?q='+encodeURIComponent(b.Ticker)).catch(()=>[]);if(h[0])b.Ticker=h[0].Symbol}
+  $('#hAdd').disabled=true;try{await api('/api/holding',b);flash('Added '+b.Ticker.toUpperCase()+'. Tracking started.');['#hT','#hI','#hS','#hP'].forEach(s=>$(s).value='');await refresh()}catch(e){flash(e.message)}$('#hAdd').disabled=false}
+
+function editHolding(t){const h=S.Portfolio.Holdings.find(x=>x.Ticker===t);const inv=prompt(`Total amount invested in ${t} ($):`,h.Invested.toFixed(2));if(inv===null)return;const bp=prompt(`Average buy price per share for ${t} ($):`,h.BuyPrice.toFixed(2));if(bp===null)return;api('/api/holding',{Ticker:t,Invested:+inv,BuyPrice:+bp,Replace:true}).then(refresh).catch(e=>flash(e.message))}
+
+const OVL={news:'News markers + forecast cone',box:'Darvas box',dow:'Dow swing points',ma:'Moving averages + crosses',rsi:'RSI panel',macd:'MACD panel',boll:'Bollinger bands',meanrev:'Mean ±σ',mom:'Momentum window',fib:'Fibonacci levels',obv:'OBV panel',contra:'Fear/greed zones',emh:'Random-walk cone'};
+let CH=null;
+const smaS=(x,n)=>x.map((_,i)=>i<n-1?null:x.slice(i-n+1,i+1).reduce((a,b)=>a+b,0)/n);
+const sdS=(x,n)=>x.map((_,i)=>{if(i<n-1)return null;const w=x.slice(i-n+1,i+1),m=w.reduce((a,b)=>a+b,0)/n;return Math.sqrt(w.reduce((a,b)=>a+(b-m)**2,0)/n)});
+const emaS=(x,n)=>{const k=2/(n+1),o=[];x.forEach((v,i)=>o.push(i?v*k+o[i-1]*(1-k):v));return o};
+function rsiS(c){const o=Array(c.length).fill(null);if(c.length<16)return o;let g=0,l=0;for(let i=1;i<=14;i++){const d=c[i]-c[i-1];d>0?g+=d:l-=d}g/=14;l/=14;for(let i=15;i<c.length;i++){const d=c[i]-c[i-1];g=(g*13+Math.max(d,0))/14;l=(l*13+Math.max(-d,0))/14;o[i]=l?100-100/(1+g/l):100}return o}
+function chartData(d){const c=d.Closes||[],n=c.length,h=d.Highs||c,l=d.Lows||c,v=d.Volumes||[],t=d.Times||[];
+  const o={c,h,l,v,t,n};
+  if(n>26){o.boxTop=Math.max(...h.slice(n-23,n-3));o.boxBot=Math.min(...l.slice(n-23,n-3))}
+  o.sw=[];const w=5;for(let i=Math.max(0,n-160)+w;i<n-w;i++){let H=true,L=true;for(let j=i-w;j<=i+w;j++){if(c[j]>c[i])H=false;if(c[j]<c[i])L=false}if(H)o.sw.push([i,'H']);if(L)o.sw.push([i,'L'])}
+  const long=n>=205;o.maF=smaS(c,long?50:20);o.maS=smaS(c,long?200:50);o.maLbl=long?['50d','200d']:['20d','50d'];
+  o.cross=[];for(let i=1;i<n;i++){if(o.maF[i-1]==null||o.maS[i-1]==null)continue;const a=o.maF[i-1]-o.maS[i-1],b=o.maF[i]-o.maS[i];if(a<=0&&b>0)o.cross.push([i,'G']);if(a>=0&&b<0)o.cross.push([i,'D'])}
+  o.m20=smaS(c,20);o.sd20=sdS(c,20);
+  let hi=0,lo=0;c.forEach((x,i)=>{if(x>c[hi])hi=i;if(x<c[lo])lo=i});o.fib={hi,lo,up:lo<hi};
+  o.rsi=rsiS(c);const e12=emaS(c,12),e26=emaS(c,26);o.macd=c.map((_,i)=>e12[i]-e26[i]);o.sig=emaS(o.macd,9);
+  o.obv=[0];for(let i=1;i<n;i++)o.obv.push(o.obv[i-1]+(c[i]>c[i-1]?(v[i]||0):c[i]<c[i-1]?-(v[i]||0):0));o.hasVol=v.some(x=>x>0);
+  return o}
+
+function drawChart(cv,d,sig,events,on){
+  const o=chartData(d);const {c,h,l,t,n}=o;const dpr=devicePixelRatio||1,W=cv.clientWidth;
+  const subs=['rsi','macd','obv'].filter(k=>on.has(k)&&(k!=='obv'||o.hasVol));const fut=on.has('news')||on.has('emh')?14:0;
+  const MH=300,SH=78,H=MH+subs.length*(SH+8)+22;cv.width=W*dpr;cv.height=H*dpr;cv.style.height=H+'px';const g=cv.getContext('2d');g.scale(dpr,dpr);g.clearRect(0,0,W,H);
+  if(n<2){g.fillStyle='#7d8ba0';g.fillText('No price history',10,20);return}
+  const pad=46,right=8,X=i=>pad+i/(n-1+fut)*(W-pad-right);
+  let mn=Math.min(...l),mx=Math.max(...h);
+  const vol=(sig.Vol||2)/100,last=c[n-1];
+  if(on.has('news')){mn=Math.min(mn,last*(1+sig.Low/100));mx=Math.max(mx,last*(1+sig.High/100))}
+  if(on.has('emh')){mn=Math.min(mn,last*(1-vol*Math.sqrt(fut)*1.3));mx=Math.max(mx,last*(1+vol*Math.sqrt(fut)*1.3))}
+  if(on.has('boll'))o.m20.forEach((m,i)=>{if(m!=null){mn=Math.min(mn,m-2*o.sd20[i]);mx=Math.max(mx,m+2*o.sd20[i])}});
+  const r=(mx-mn)||1;mn-=r*.04;mx+=r*.04;const Y=v=>10+(1-(v-mn)/(mx-mn))*(MH-30);
+  g.font='11px Consolas, monospace';g.textBaseline='middle';
+  g.strokeStyle='#1c2533';g.fillStyle='#7d8ba0';for(let k=0;k<=5;k++){const v=mn+(mx-mn)*k/5,y=Y(v);g.beginPath();g.moveTo(pad,y);g.lineTo(W-right,y);g.stroke();g.fillText(price(v),2,y)}
+  if(t.length===n){let lm=-1;g.textAlign='center';for(let i=0;i<n;i++){const dt=new Date(t[i]*1000),m=dt.getMonth();if(m!==lm&&i>0){g.strokeStyle='#1c2533';g.beginPath();g.moveTo(X(i),10);g.lineTo(X(i),MH-20);g.stroke();g.fillStyle='#5d6a7e';g.fillText(dt.toLocaleString(undefined,{month:'short'}),X(i),MH-10)}lm=m}g.textAlign='left'}
+  const line=(arr,col,wd,dash)=>{g.strokeStyle=col;g.lineWidth=wd;g.setLineDash(dash||[]);g.beginPath();let st=false;arr.forEach((v,i)=>{if(v==null)return;st?g.lineTo(X(i),Y(v)):g.moveTo(X(i),Y(v));st=true});g.stroke();g.setLineDash([]);g.lineWidth=1};
+  const tag=(x,y,txt,col,bg)=>{g.font='bold 10px Consolas, monospace';const w=g.measureText(txt).width+8;x=Math.max(pad,Math.min(x,W-right-w));g.fillStyle=bg||'#0a0d12';g.fillRect(x,y-8,w,16);g.strokeStyle=col;g.strokeRect(x,y-8,w,16);g.fillStyle=col;g.fillText(txt,x+4,y);g.font='11px Consolas, monospace'};
+
+  if(on.has('mom')&&n>130){g.fillStyle='#5aa9ff10';g.fillRect(X(n-127),10,X(n-22)-X(n-127),MH-30);const a=c[n-127],b=c[n-22];g.strokeStyle=b>=a?'#22c55e':'#ef4444';g.lineWidth=2;g.setLineDash([2,3]);g.beginPath();g.moveTo(X(n-127),Y(a));g.lineTo(X(n-22),Y(b));g.stroke();g.setLineDash([]);g.lineWidth=1;tag(X(n-127)+4,22,`MOMENTUM 6m ${pct((b/a-1)*100)}`,b>=a?'#22c55e':'#ef4444')}
+  if(on.has('contra')){const r20=sig.R20||0;if(Math.abs(r20)>8){const fear=r20<0;g.fillStyle=fear?'#22c55e14':'#ef444414';g.fillRect(X(Math.max(0,n-22)),10,X(n-1)-X(Math.max(0,n-22)),MH-30);tag(X(Math.max(0,n-22))+4,MH-38,fear?'FEAR ZONE (contrarian buy)':'GREED ZONE (contrarian sell)',fear?'#22c55e':'#ef4444')}}
+  if(on.has('boll')){const up=o.m20.map((m,i)=>m==null?null:m+2*o.sd20[i]),lw=o.m20.map((m,i)=>m==null?null:m-2*o.sd20[i]);g.fillStyle='#5aa9ff14';g.beginPath();let st=-1;up.forEach((v,i)=>{if(v==null)return;if(st<0){g.moveTo(X(i),Y(v));st=i}else g.lineTo(X(i),Y(v))});for(let i=n-1;i>=st&&st>=0;i--)g.lineTo(X(i),Y(lw[i]));g.fill();line(up,'#5aa9ff88',1);line(lw,'#5aa9ff88',1);line(o.m20,'#5aa9ff55',1,[3,3])}
+  if(on.has('meanrev')){line(o.m20,'#e5e7eb88',1.2);const a=o.m20.map((m,i)=>m==null?null:m+1.5*o.sd20[i]),b=o.m20.map((m,i)=>m==null?null:m-1.5*o.sd20[i]);line(a,'#e5e7eb44',1,[2,4]);line(b,'#e5e7eb44',1,[2,4])}
+  if(on.has('fib')){const {hi,lo,up}=o.fib,H0=c[hi],L0=c[lo],rg=H0-L0;[[0,'0%'],[.236,'23.6%'],[.382,'38.2%'],[.5,'50%'],[.618,'61.8%'],[.786,'78.6%'],[1,'100%']].forEach(([f,lb])=>{const v=up?H0-rg*f:L0+rg*f,y=Y(v);g.strokeStyle=(f>=.382&&f<=.618)?'#f5b94299':'#f5b94440';g.setLineDash([6,4]);g.beginPath();g.moveTo(X(Math.min(hi,lo)),y);g.lineTo(X(n-1+fut),y);g.stroke();g.setLineDash([]);g.fillStyle='#f5b942';g.fillText(`FIB ${lb} ${price(v)}`,X(Math.min(hi,lo))+4,y-7)});g.fillStyle='#f5b9420d';const y1=Y(up?H0-rg*.382:L0+rg*.382),y2=Y(up?H0-rg*.618:L0+rg*.618);g.fillRect(X(Math.min(hi,lo)),Math.min(y1,y2),X(n-1+fut)-X(Math.min(hi,lo)),Math.abs(y2-y1))}
+  if(on.has('ma')){line(o.maF,'#f5b942',1.3);line(o.maS,'#b48cff',1.3);for(const [i,k] of o.cross){const gold=k==='G';g.fillStyle=gold?'#f5b942':'#b48cff';g.beginPath();g.arc(X(i),Y(o.maF[i]),5,0,7);g.fill();tag(X(i)+7,Y(o.maF[i])+(gold?14:-14),gold?'GOLDEN CROSS':'DEATH CROSS',gold?'#f5b942':'#b48cff')}tag(pad+4,MH-38,`MA ${o.maLbl[0]}`,'#f5b942');tag(pad+70,MH-38,`MA ${o.maLbl[1]}`,'#b48cff')}
+
+  const upc=c[n-1]>=c[0];const grd=g.createLinearGradient(0,10,0,MH);grd.addColorStop(0,upc?'#22c55e30':'#ef444430');grd.addColorStop(1,'#0000');g.fillStyle=grd;g.beginPath();g.moveTo(X(0),MH-20);c.forEach((v,i)=>g.lineTo(X(i),Y(v)));g.lineTo(X(n-1),MH-20);g.fill();
+  line(c,upc?'#22c55e':'#ef4444',1.8);
+
+  if(on.has('box')&&o.boxTop!=null){const bt=o.boxTop,bb=o.boxBot,x0=X(n-23),x1=X(n-1);g.fillStyle='#5aa9ff12';g.fillRect(x0,Y(bt),x1-x0,Y(bb)-Y(bt));g.strokeStyle='#5aa9ff';g.lineWidth=1.5;g.setLineDash([5,3]);g.strokeRect(x0,Y(bt),x1-x0,Y(bb)-Y(bt));g.setLineDash([]);g.lineWidth=1;
+    const st=last>bt?['BREAKOUT ▲','#22c55e']:last<bb?['BREAKDOWN ▼','#ef4444']:['IN BOX','#5aa9ff'];tag(x0,Y(bt)-12,`BOX ${price(bb)}–${price(bt)} · ${st[0]}`,st[1])}
+  if(on.has('dow')){const hs=o.sw.filter(s=>s[1]==='H'),ls=o.sw.filter(s=>s[1]==='L');const conn=(arr,col)=>{g.strokeStyle=col;g.lineWidth=1.2;g.beginPath();arr.forEach(([i],k)=>k?g.lineTo(X(i),Y(c[i])):g.moveTo(X(i),Y(c[i])));g.stroke();g.lineWidth=1};conn(hs,'#22c55e77');conn(ls,'#ef444477');
+    const lab=(arr,isH)=>arr.forEach(([i],k)=>{const prev=k?c[arr[k-1][0]]:null,txt=prev==null?'':(isH?(c[i]>prev?'HH':'LH'):(c[i]>prev?'HL':'LL'));const good=txt==='HH'||txt==='HL';g.fillStyle=isH?'#22c55e':'#ef4444';g.beginPath();g.arc(X(i),Y(c[i]),3.5,0,7);g.fill();if(txt){g.fillStyle=good?'#22c55e':'#ef4444';g.font='bold 10px Consolas, monospace';g.fillText(txt,X(i)-7,Y(c[i])+(isH?-11:11));g.font='11px Consolas, monospace'}});lab(hs,true);lab(ls,false)}
+
+  if(on.has('emh')&&fut){g.fillStyle='#9ca3af18';g.beginPath();g.moveTo(X(n-1),Y(last));for(let k=1;k<=fut;k++)g.lineTo(X(n-1+k),Y(last*(1+vol*Math.sqrt(k)*1.3)));for(let k=fut;k>=1;k--)g.lineTo(X(n-1+k),Y(last*(1-vol*Math.sqrt(k)*1.3)));g.fill();tag(X(n-1)+4,Y(last*(1+vol*Math.sqrt(fut)*1.3))-10,'EMH: random walk','#9ca3af')}
+  if(on.has('news')&&fut){const col=sig.Expected>=0?'#22c55e':'#ef4444';g.fillStyle=sig.Expected>=0?'#22c55e22':'#ef444422';g.beginPath();g.moveTo(X(n-1),Y(last));g.lineTo(X(n-1+fut),Y(last*(1+sig.High/100)));g.lineTo(X(n-1+fut),Y(last*(1+sig.Low/100)));g.closePath();g.fill();g.strokeStyle=col;g.lineWidth=2;g.setLineDash([5,4]);g.beginPath();g.moveTo(X(n-1),Y(last));g.lineTo(X(n-1+fut),Y(last*(1+sig.Expected/100)));g.stroke();g.setLineDash([]);g.lineWidth=1;tag(X(n-1+fut)-112,Y(last*(1+sig.Expected/100))+(sig.Expected>=0?-14:14),`FORECAST ${pct(sig.Expected)}`,col)}
+  if(on.has('news')&&t.length===n){const marks=[];for(const e of events||[]){if(Math.abs(e.Impact)<0.3)continue;const ts=new Date(e.FirstSeen)/1000;let idx=n-1;for(let i=0;i<n;i++)if(t[i]>=ts-43200){idx=i;break}marks.push([idx,e])}
+    const stack={};marks.sort((a,b)=>Math.abs(b[1].Impact)-Math.abs(a[1].Impact)).slice(0,6).forEach(([i,e])=>{const k=stack[i]=(stack[i]||0)+1;const up=e.Dir>0,y=up?Y(h[i])-10-k*14:Y(l[i])+10+k*14;g.fillStyle=up?'#22c55e':'#ef4444';g.beginPath();if(up){g.moveTo(X(i),y-6);g.lineTo(X(i)-5,y+3);g.lineTo(X(i)+5,y+3)}else{g.moveTo(X(i),y+6);g.lineTo(X(i)-5,y-3);g.lineTo(X(i)+5,y-3)}g.fill();g.font='9px Consolas, monospace';const lb=e.Label.slice(0,20);const tw=g.measureText(lb).width;g.fillText(lb,X(i)+7+tw>W-right?X(i)-7-tw:X(i)+7,y);g.font='11px Consolas, monospace'})}
+  g.fillStyle=upc?'#22c55e':'#ef4444';g.beginPath();g.arc(X(n-1),Y(last),3.5,0,7);g.fill();
+
+  let top=MH;const sub=(name,arr,lo,hi,lines,extra)=>{top+=8;const y=v=>top+4+(1-(v-lo)/((hi-lo)||1))*(SH-8);g.strokeStyle='#263142';g.strokeRect(pad,top,W-pad-right,SH);g.fillStyle='#7d8ba0';g.fillText(name,4,top+10);(lines||[]).forEach(([v,col])=>{g.strokeStyle=col;g.setLineDash([3,3]);g.beginPath();g.moveTo(pad,y(v));g.lineTo(W-right,y(v));g.stroke();g.setLineDash([]);g.fillStyle=col;g.fillText(String(v),pad-22,y(v))});extra&&extra(y);if(arr){g.strokeStyle='#e5e7eb';g.lineWidth=1.3;g.beginPath();let st=false;arr.forEach((v,i)=>{if(v==null)return;st?g.lineTo(X(i),y(v)):g.moveTo(X(i),y(v));st=true});g.stroke();g.lineWidth=1}top+=SH};
+  for(const k of subs){
+    if(k==='rsi')sub('RSI',o.rsi,0,100,[[70,'#ef4444'],[30,'#22c55e']],y=>{g.fillStyle='#ef444410';g.fillRect(pad,y(100),W-pad-right,y(70)-y(100));g.fillStyle='#22c55e10';g.fillRect(pad,y(30),W-pad-right,y(0)-y(30))});
+    if(k==='macd'){const hist=o.macd.map((m,i)=>m-o.sig[i]),all=[...o.macd.slice(26),...o.sig.slice(26),...hist.slice(26)],a=Math.max(...all.map(Math.abs))||1;sub('MACD',null,-a,a,[[0,'#7d8ba0']],y=>{hist.forEach((v,i)=>{if(i<26)return;g.fillStyle=v>=0?'#22c55e88':'#ef444488';const x=X(i),w=Math.max(1,(W-pad)/n*.7);g.fillRect(x-w/2,Math.min(y(0),y(v)),w,Math.abs(y(v)-y(0)))});const ln=(arr,col)=>{g.strokeStyle=col;g.beginPath();arr.forEach((v,i)=>{if(i<26)return;i===26?g.moveTo(X(i),y(v)):g.lineTo(X(i),y(v))});g.stroke()};ln(o.macd,'#5aa9ff');ln(o.sig,'#f5b942')})}
+    if(k==='obv'){const lo=Math.min(...o.obv),hi=Math.max(...o.obv);sub('OBV',o.obv,lo,hi,[])}
+  }
+  CH={o,X,Y,pad,right,n,W,H,MH,fut,last};
+}
+
+function chartHover(cv,tip){cv.onmousemove=e=>{if(!CH)return;const rc=cv.getBoundingClientRect(),x=e.clientX-rc.left;const i=Math.round((x-CH.pad)/(CH.W-CH.pad-CH.right)*(CH.n-1+CH.fut));if(i<0||i>=CH.n){tip.style.display='none';return}const o=CH.o,dt=o.t[i]?new Date(o.t[i]*1000).toLocaleDateString():'';tip.style.display='block';tip.style.left=(x+12)+'px';tip.style.top=(e.clientY-rc.top+8)+'px';tip.innerHTML=`<b>${dt}</b><br>Close ${price(o.c[i])}${o.rsi[i]!=null?`<br>RSI ${o.rsi[i].toFixed(0)}`:''}${o.maF[i]!=null?`<br>MA ${o.maLbl[0]} ${price(o.maF[i])}`:''}`};cv.onmouseleave=()=>tip.style.display='none'}
+
+async function openCo(t){if(!t)return;location.hash='t='+t;$('#modal').style.display='block';$('#mbox').innerHTML='<span class="spin"></span> Loading '+esc(t)+'…';
+  let d;try{d=await api('/api/company?t='+encodeURIComponent(t))}catch(e){$('#mbox').innerHTML='Failed: '+esc(e.message);return}
+  const s=d.Signal,q=d.Quote,en=enabledTheories(),cat=Object.fromEntries(S.TheoryCatalog.map(x=>[x.ID,x]));
+  const ths=(s.Theories||[]).slice().sort((a,b)=>(en.includes(b.ID)-en.includes(a.ID)));
+  $('#mbox').innerHTML=`<button class="x" onclick="closeCo()">✕ Close</button>
+  <div class="row" style="align-items:baseline"><span class="big">${esc(t)}</span><span style="font-size:18px">${esc(d.Company?.Name||s.Name)}</span><span class="pill">${esc(s.Sector)}</span>${d.Held?'<span class="pill y">IN PORTFOLIO</span>':d.Watched?'<span class="pill">TRACKING</span>':''}</div>
+  <div class="row" style="margin:6px 0 12px">${q?`<span class="big" style="font-size:22px">${price(q.Price)} ${esc(q.Currency||'')}</span> ${cpct(q.DayPct,2)} <span class="mu small">5d ${pct(q.R5)} · 1mo ${pct(q.R20)} · daily vol ${q.Vol.toFixed(1)}%</span>`:'<span class="mu">No price data</span>'}<span class="grow"></span>
+  ${d.Watched||d.Held?'':`<button class="pri" id="mTrk">Track 24/7</button>`}<button id="mInv">Add investment</button>${d.Watched?`<button class="dng" id="mUn">Untrack</button>`:''}</div>
+  <div class="chips" id="mOv" style="margin-bottom:8px"></div>
+  <div style="position:relative"><canvas id="mChart"></canvas><div id="mTip" style="position:absolute;display:none;background:var(--p2);border:1px solid var(--ln);border-radius:6px;padding:5px 8px;font:11px var(--mono);pointer-events:none"></div></div>
+  <div class="grid g2" style="margin-top:14px"><div class="card"><h3>What Seismo thinks will happen</h3><div class="row" style="margin-bottom:8px">${ol(s.Outlook,s.OutlookLvl)} <b class="mono">${pct(s.Expected)}</b> <span class="mu small">range ${pct(s.Low)} … ${pct(s.High)} · ${s.Confidence}% confidence · ${esc(s.Horizon)}</span></div><div class="small">${esc(s.Narrative)}</div>
+   <div class="kv" style="margin-top:10px"><div><span>News effect</span><b>${cpct(s.NewsMove)}</b></div><div><span>World events</span><b>${cpct(s.MacroMove)}</b></div><div><span>Trend</span><b>${cpct(s.Momentum)}</b></div><div><span>Flight risk</span><b>${fl(s.Flight,s.FlightLabel)}</b></div><div><span>Coverage</span><b>${s.NSources} src</b></div></div>
+   <h3 style="margin-top:14px">Drivers</h3>${(s.Drivers||[]).map(x=>`<div class="row small" style="margin:3px 0"><span class="mono ${x.Impact>=0?'up':'dn'}" style="width:60px">${pct(x.Impact)}</span>${cls(x.Class)}<span>${esc(x.Label)}</span><span class="mu">${x.Kind}</span></div>`).join('')||'<span class="mu small">None</span>'}</div>
+  <div class="card"><h3>Theories</h3>${theoryChips(s.Theories)}<div style="margin-top:10px">${ths.map(x=>`<div class="th ${en.includes(x.ID)?'':'off'}" style="padding:7px 10px"><div class="row"><span class="chip v-${x.Verdict.replace(' ','-')}">${TSHORT[x.ID]}: ${x.Verdict}</span><span class="n small">${esc(cat[x.ID]?.Name||x.ID)}</span></div><div class="small" style="margin-top:3px">${esc(x.Detail)}</div></div>`).join('')}</div><div class="mu small">Dimmed theories are turned off in the Theories tab and excluded from the consensus.</div></div></div>
+  <h3 style="margin:16px 0 8px;color:var(--mu);font-size:13px;letter-spacing:.8px">EVENTS</h3>${(d.Events||[]).map(evCard).join('')||'<div class="empty">No company-specific events found in the last 7 days.</div>'}
+  <div id="mPeers" style="margin-top:14px"></div>`;
+  const ov=new Set(JSON.parse(localStorage.getItem('ovl')||'null')||en);
+  const drawOv=()=>{$('#mOv').innerHTML='<span class="mu small" style="align-self:center">Show on chart:</span>'+S.TheoryCatalog.map(x=>`<span class="chip ${ov.has(x.ID)?'v-UP':''}" data-ov="${x.ID}" style="cursor:pointer" title="${esc(OVL[x.ID]||'')}">${ov.has(x.ID)?'✓ ':''}${TSHORT[x.ID]}</span>`).join('');
+    $('#mOv').querySelectorAll('[data-ov]').forEach(e=>e.onclick=()=>{ov.has(e.dataset.ov)?ov.delete(e.dataset.ov):ov.add(e.dataset.ov);localStorage.setItem('ovl',JSON.stringify([...ov]));drawOv()});
+    drawChart($('#mChart'),d,s,d.Events,ov)};
+  drawOv();chartHover($('#mChart'),$('#mTip'));window.onresize=()=>{if($('#modal').style.display==='block'&&$('#mChart'))drawChart($('#mChart'),d,s,d.Events,ov)};
+  $('#mTrk')&&($('#mTrk').onclick=async()=>{await api('/api/track',{Ticker:t}).catch(e=>flash(e.message));flash('Tracking '+t+' 24/7');refresh();openCo(t)});
+  $('#mUn')&&($('#mUn').onclick=async()=>{await api('/api/untrack',{Ticker:t});refresh();openCo(t)});
+  $('#mInv').onclick=()=>{closeCo();setTab('port');setTimeout(()=>{$('#hT').value=t;$('#hI').focus()},50)};
+  $('#mbox').querySelectorAll('[data-co]').forEach(e=>e.onclick=ev=>{ev.preventDefault();openCo(e.dataset.co)});
+  await loadPeers(t,d.Company?.Name||s.Name,'#mPeers');
+  $('#mPeers').querySelectorAll('tr[data-t]').forEach(e=>e.onclick=ev=>{if(ev.target.closest('button'))return;openCo(e.dataset.t)});
+  $('#mPeers').querySelectorAll('[data-trk]').forEach(e=>e.onclick=async ev=>{ev.stopPropagation();await api('/api/track',{Ticker:e.dataset.trk});e.textContent='Tracking ✓';refresh()});
+}
+function closeCo(){$('#modal').style.display='none';history.replaceState(null,'',location.pathname)}
+$('#modal').onclick=e=>{if(e.target.id==='modal')closeCo()};document.onkeydown=e=>{if(e.key==='Escape')closeCo()};
+
+function wrongMenu(el){
+  const ev=el.closest('.ev');ev.querySelectorAll('.wmenu').forEach(x=>x.remove());
+  const t=el.dataset.t,e=el.dataset.e,k=el.dataset.k,l=el.dataset.l,ids=el.dataset.wa?[el.dataset.wa]:[];
+  const scope=ids.length?'this headline':'this event';
+  const m=document.createElement('div');m.className='wmenu';
+  m.innerHTML=`<span class="small mu">Fix ${scope}:</span>${k!=='macro'?`<button class="sm" data-a="notco">Not about ${esc(t)}</button>`:''}<button class="sm" data-a="drop">Not really "${esc(l)}"</button>${k!=='macro'?`<select class="sm" style="padding:3px 6px;font-size:12px"><option value="">It's actually…</option>${(S.Rules||[]).filter(r=>r.ID!==e).map(r=>`<option value="${r.ID}">${r.Dir>0?'▲':'▼'} ${esc(r.Label)}</option>`).join('')}</select>`:''}<button class="sm" data-a="x">Cancel</button>`;
+  (el.closest('li')||el.closest('.hd')).after(m);
+  const send=async(action,relabel)=>{m.innerHTML='<span class="spin"></span>';try{await api('/api/feedback',{Ticker:t,EventID:e,Kind:k,Action:action,Relabel:relabel||'',ArticleIDs:ids});flash('Thanks, Seismo learned from that and re-scored.');await refresh();if($('#modal').style.display==='block'&&location.hash.startsWith('#t='))openCo(decodeURIComponent(location.hash.slice(3)))}catch(x){flash(x.message);m.remove()}};
+  m.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>b.dataset.a==='x'?m.remove():send(b.dataset.a));
+  const sel=m.querySelector('select');sel&&(sel.onchange=()=>sel.value&&send('relabel',sel.value));
+}
+document.addEventListener('click',ev=>{const w=ev.target.closest('[data-wrong],[data-wa]');if(w){ev.preventDefault();ev.stopPropagation();wrongMenu(w)}},true);
+
+let lastVer=null;
+async function refresh(){try{S=await api('/api/state');if(lastVer&&S.Version!==lastVer){location.reload();return}lastVer=S.Version;
+  const top=S.Alerts?.[0];if(top&&lastAlertTop&&top.At!==lastAlertTop&&document.hidden&&'Notification'in window&&Notification.permission==='granted')new Notification(top.Title,{body:top.Body});lastAlertTop=top?.At||lastAlertTop||'x';
+  render()}catch(e){$('#scan').textContent='Connection lost — is Seismo running?'}}
+function loop(){refresh().finally(()=>setTimeout(loop,S&&S.Scanning?3000:15000))}
+$('#scanBtn').onclick=()=>{api('/api/scan',{});flash('Scan started');setTimeout(refresh,800)};
+function hashRoute(){const h=location.hash;if(h.startsWith('#t='))openCo(decodeURIComponent(h.slice(3)));else if(h==='#alerts')setTab('alerts')}
+window.addEventListener('hashchange',()=>{if(location.hash.startsWith('#t=')&&$('#modal').style.display!=='block')hashRoute()});
+loop();setTimeout(hashRoute,600);
+</script>
+</body>
+</html>
