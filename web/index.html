@@ -187,7 +187,8 @@ function port(){
 
 function find(){return `<div class="card"><h3>Find a company</h3><div class="row"><input id="fQ" placeholder="Type a company name or ticker…" style="width:420px" autocomplete="off"><button class="pri" id="fGo">Search</button></div><div id="fRes" style="margin-top:12px"></div></div><div id="fPeers" style="margin-top:14px"></div>`}
 
-async function doFind(q){if(!q)return;$('#fRes').innerHTML='<span class="spin"></span>';try{const hits=await api('/api/search?q='+encodeURIComponent(q));$('#fRes').innerHTML=hits.length?hits.map(h=>`<div class="hit" data-pick="${esc(h.Symbol)}"><b class="mono" style="width:90px">${esc(h.Symbol)}</b><span style="flex:1">${esc(h.Name)}</span><span class="mu small">${esc([h.Exchange,h.Sector||'',h.Industry||''].filter(Boolean).join(' · '))}</span><button class="sm" data-trk="${esc(h.Symbol)}">Track</button><button class="sm" data-inv="${esc(h.Symbol)}">Invest</button></div>`).join(''):'<div class="empty">No matches.</div>';if(hits[0])loadPeers(hits[0].Symbol,hits[0].Name)}catch(e){$('#fRes').innerHTML='<div class="empty">Search failed: '+esc(e.message)+'</div>'}}
+const tracked=t=>(S?.Watch||[]).includes(t)||(S?.Portfolio?.Holdings||[]).some(h=>h.Ticker===t);
+async function doFind(q){if(!q)return;$('#fRes').innerHTML='<span class="spin"></span>';try{const hits=await api('/api/search?q='+encodeURIComponent(q));$('#fRes').innerHTML=hits.length?hits.map(h=>`<div class="hit" data-pick="${esc(h.Symbol)}"><b class="mono" style="width:90px">${esc(h.Symbol)}</b><span style="flex:1">${esc(h.Name)}</span><span class="mu small">${esc([h.Exchange,h.Sector||'',h.Industry||''].filter(Boolean).join(' · '))}</span>${tracked(h.Symbol)?'<span class="pill y">TRACKING</span>':`<button class="sm" data-trk="${esc(h.Symbol)}">Track</button>`}<button class="sm" data-inv="${esc(h.Symbol)}">Invest</button></div>`).join(''):'<div class="empty">No matches.</div>';if(hits[0])loadPeers(hits[0].Symbol,hits[0].Name)}catch(e){$('#fRes').innerHTML='<div class="empty">Search failed: '+esc(e.message)+'</div>'}}
 
 async function loadPeers(t,name,target='#fPeers'){const el=$(target);if(!el)return;el.innerHTML=`<div class="card"><h3>Most similar to ${esc(name||t)}</h3><span class="spin"></span></div>`;try{const p=await api('/api/peers?t='+encodeURIComponent(t));el.innerHTML=`<div class="card"><h3>Most similar to ${esc(name||t)}</h3>${p.length?`<table><tr><th>Company</th><th class="num">Price</th><th class="num">Day</th><th>Outlook</th><th>Why similar</th><th></th></tr>${p.map(x=>`<tr class="cl" data-t="${esc(x.Symbol)}"><td><b class="mono">${esc(x.Symbol)}</b> <span class="mu small">${esc(x.Name)}</span></td><td class="num">${x.HasQuote?price(x.Price):'—'}</td><td class="num">${x.HasQuote?cpct(x.DayPct,2):'—'}</td><td>${x.Outlook==='—'?'<span class="mu">no news yet</span>':ol(x.Outlook,x.OutlookLvl)}</td><td class="mu small">${esc(x.Reason)}</td><td>${x.Tracked?'<span class="pill y">TRACKED</span>':`<button class="sm" data-trk="${esc(x.Symbol)}">Track</button>`}</td></tr>`).join('')}</table>`:'<div class="empty">No similar companies found.</div>'}</div>`}catch(e){el.innerHTML=''}}
 
@@ -253,9 +254,6 @@ function bind(){
   m.querySelectorAll('[data-rm]').forEach(e=>e.onclick=async()=>{if(!confirm('Remove '+e.dataset.rm+' from your portfolio?'))return;await api('/api/holding/remove',{Ticker:e.dataset.rm});refresh()});
   m.querySelectorAll('[data-edit]').forEach(e=>e.onclick=()=>editHolding(e.dataset.edit));
   m.querySelectorAll('[data-unw]').forEach(e=>e.onclick=async()=>{await api('/api/untrack',{Ticker:e.dataset.unw});refresh()});
-  m.querySelectorAll('[data-trk]').forEach(e=>e.onclick=async ev=>{ev.stopPropagation();e.disabled=true;try{await api('/api/track',{Ticker:e.dataset.trk});e.textContent='Tracking ✓';flash('Now tracking '+e.dataset.trk+' 24/7');refresh()}catch(x){flash(x.message);e.disabled=false}});
-  m.querySelectorAll('[data-inv]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();setTab('port');setTimeout(()=>{$('#hT').value=e.dataset.inv;$('#hI').focus()},50)});
-  m.querySelectorAll('[data-pick]').forEach(e=>e.onclick=ev=>{if(ev.target.closest('button'))return;loadPeers(e.dataset.pick,e.querySelector('span').textContent);openCo(e.dataset.pick)});
   m.querySelectorAll('.alert[data-t]').forEach(e=>e.onclick=()=>e.dataset.t&&openCo(e.dataset.t));
   if(tab==='find'){const go=()=>doFind($('#fQ').value.trim());$('#fGo').onclick=go;$('#fQ').onkeydown=e=>{if(e.key==='Enter')go()};$('#fQ').focus()}
   if(tab==='port'){
@@ -369,8 +367,6 @@ async function openCo(t){if(!t)return;location.hash='t='+t;$('#modal').style.dis
   $('#mInv').onclick=()=>{closeCo();setTab('port');setTimeout(()=>{$('#hT').value=t;$('#hI').focus()},50)};
   $('#mbox').querySelectorAll('[data-co]').forEach(e=>e.onclick=ev=>{ev.preventDefault();openCo(e.dataset.co)});
   await loadPeers(t,d.Company?.Name||s.Name,'#mPeers');
-  $('#mPeers').querySelectorAll('tr[data-t]').forEach(e=>e.onclick=ev=>{if(ev.target.closest('button'))return;openCo(e.dataset.t)});
-  $('#mPeers').querySelectorAll('[data-trk]').forEach(e=>e.onclick=async ev=>{ev.stopPropagation();await api('/api/track',{Ticker:e.dataset.trk});e.textContent='Tracking ✓';refresh()});
 }
 function closeCo(){$('#modal').style.display='none';history.replaceState(null,'',location.pathname)}
 $('#modal').onclick=e=>{if(e.target.id==='modal')closeCo()};document.onkeydown=e=>{if(e.key==='Escape')closeCo()};
@@ -390,6 +386,19 @@ document.addEventListener('click',ev=>{const ext=ev.target.closest('a[href^="htt
 document.addEventListener('click',ev=>{const w=ev.target.closest('[data-wrong],[data-wa]');if(w){ev.preventDefault();ev.stopPropagation();wrongMenu(w)}},true);
 
 let lastVer=null,lostCount=0;
+document.addEventListener('click',async ev=>{
+  const trk=ev.target.closest('[data-trk]');
+  if(trk){ev.preventDefault();ev.stopPropagation();if(trk.disabled)return;trk.disabled=true;const t=trk.dataset.trk;trk.innerHTML='<span class="spin"></span>';
+    try{await api('/api/track',{Ticker:t});trk.textContent='Tracking ✓';trk.classList.add('pri');flash('Now tracking '+t+' 24/7');refresh()}catch(x){trk.textContent='Track';trk.disabled=false;flash('Could not track '+t+': '+x.message)}return}
+  const inv=ev.target.closest('[data-inv]');
+  if(inv){ev.preventDefault();ev.stopPropagation();const t=inv.dataset.inv;closeCo();setTab('port');setTimeout(()=>{$('#hT').value=t;$('#hI').focus()},50);return}
+  if(ev.target.closest('button,a,input,select'))return;
+  const pick=ev.target.closest('[data-pick]');
+  if(pick){loadPeers(pick.dataset.pick,pick.querySelector('span')?.textContent);openCo(pick.dataset.pick);return}
+  const row=ev.target.closest('#fPeers tr[data-t],#mPeers tr[data-t],#fRes [data-t]');
+  if(row){openCo(row.dataset.t)}
+},true);
+
 async function refresh(){try{S=await api('/api/state');lostCount=0;if(lastVer&&S.Version!==lastVer){location.reload();return}lastVer=S.Version;
   if(S.Nav){location.hash=S.Nav;hashRoute()}
   const top=S.Alerts?.[0];if(top&&lastAlertTop&&top.At!==lastAlertTop&&document.hidden&&'Notification'in window&&Notification.permission==='granted')new Notification(top.Title,{body:top.Body});lastAlertTop=top?.At||lastAlertTop||'x';
