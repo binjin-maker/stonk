@@ -455,11 +455,18 @@ func (a *App) hSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.RefreshMin < 5 {
-		s.RefreshMin = 5
+		s.RefreshMin = 15
 	}
-	if s.RefreshMin > 240 {
-		s.RefreshMin = 240
+	var ts []string
+	for _, t := range s.ScanTimes {
+		if _, err := time.Parse("15:04", t); err == nil && !contains(ts, t) {
+			ts = append(ts, t)
+		}
 	}
+	if len(ts) == 0 {
+		ts = defaultScanTimes()
+	}
+	s.ScanTimes = ts
 	if s.Sensitivity == "" {
 		s.Sensitivity = "normal"
 	}
@@ -467,6 +474,10 @@ func (a *App) hSettings(w http.ResponseWriter, r *http.Request) {
 	a.store.Settings = s
 	a.mu.Unlock()
 	a.saveStore()
+	next := a.nextSlot(time.Now())
+	a.mu.Lock()
+	a.nextScan = next
+	a.mu.Unlock()
 	writeJSON(w, map[string]bool{"ok": true})
 }
 

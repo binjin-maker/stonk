@@ -1,1 +1,1 @@
-Seismo is now a real app window with a tray icon. Click the tray icon to open it.
+News scans now run 4 times a day (6:00, 9:30, 12:30, 5:00). Change the times in Settings.

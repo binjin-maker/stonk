@@ -25,6 +25,7 @@ type Holding struct {
 
 type Settings struct {
 	RefreshMin   int
+	ScanTimes    []string
 	Theories     []string
 	NotifyOn     bool
 	NotifyWatch  bool
@@ -52,6 +53,7 @@ type Store struct {
 	Watch     []string
 	Extra     map[string]*Company
 	Settings  Settings
+	LastScan  time.Time
 	Notified  map[string]NotifRec
 	Alerts    []Alert
 	Overrides map[string]Override
@@ -82,7 +84,7 @@ func NewApp() *App {
 		stats:    map[string]*SourceStat{},
 		trigger:  make(chan struct{}, 1),
 		store: Store{Extra: map[string]*Company{}, Notified: map[string]NotifRec{},
-			Settings: Settings{RefreshMin: 15, NotifyOn: true, NotifyWatch: true, Sensitivity: "normal", Theories: []string{"news", "box", "dow", "ma", "rsi", "macd", "contra"}}},
+			Settings: Settings{RefreshMin: 15, ScanTimes: defaultScanTimes(), NotifyOn: true, NotifyWatch: true, Sensitivity: "normal", Theories: []string{"news", "box", "dow", "ma", "rsi", "macd", "contra"}}},
 	}
 }
 
@@ -110,6 +112,10 @@ func (a *App) Load() {
 	if a.store.Settings.RefreshMin < 5 {
 		a.store.Settings.RefreshMin = 15
 	}
+	if len(a.store.Settings.ScanTimes) == 0 {
+		a.store.Settings.ScanTimes = defaultScanTimes()
+	}
+	a.lastScan = a.store.LastScan
 	if b, err := os.ReadFile(filepath.Join(appDir, "cache.json")); err == nil {
 		var arts []*Article
 		if json.Unmarshal(b, &arts) == nil {
@@ -210,19 +216,85 @@ func (a *App) Run() {
 	a.refreshQuotes(syms, 0)
 	a.analyze(false)
 	go a.quoteLoop()
-	for {
+	a.mu.RLock()
+	last := a.store.LastScan
+	a.mu.RUnlock()
+	a.mu.Lock()
+	a.nextScan = a.nextSlotLocked()
+	a.mu.Unlock()
+	if last.IsZero() || last.Before(a.prevSlot(time.Now())) {
 		a.scan()
-		a.mu.RLock()
-		wait := time.Duration(a.store.Settings.RefreshMin) * time.Minute
-		a.mu.RUnlock()
+	}
+	for {
+		next := a.nextSlot(time.Now())
 		a.mu.Lock()
-		a.nextScan = time.Now().Add(wait)
+		a.nextScan = next
 		a.mu.Unlock()
-		select {
-		case <-a.trigger:
-		case <-time.After(wait):
+		tick := time.NewTicker(30 * time.Second)
+	wait:
+		for {
+			select {
+			case <-a.trigger:
+				break wait
+			case <-tick.C:
+				if !time.Now().Before(next) {
+					break wait
+				}
+			}
+		}
+		tick.Stop()
+		a.scan()
+	}
+}
+
+func (a *App) nextSlotLocked() time.Time {
+	a.mu.Unlock()
+	defer a.mu.Lock()
+	return a.nextSlot(time.Now())
+}
+
+func defaultScanTimes() []string { return []string{"06:00", "09:30", "12:30", "17:00"} }
+
+func (a *App) slots(day time.Time) []time.Time {
+	a.mu.RLock()
+	ts := append([]string(nil), a.store.Settings.ScanTimes...)
+	a.mu.RUnlock()
+	if len(ts) == 0 {
+		ts = defaultScanTimes()
+	}
+	var out []time.Time
+	for _, s := range ts {
+		t, err := time.ParseInLocation("15:04", s, time.Local)
+		if err != nil {
+			continue
+		}
+		out = append(out, time.Date(day.Year(), day.Month(), day.Day(), t.Hour(), t.Minute(), 0, 0, time.Local))
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Before(out[j]) })
+	return out
+}
+
+func (a *App) nextSlot(now time.Time) time.Time {
+	for d := 0; d < 3; d++ {
+		for _, s := range a.slots(now.AddDate(0, 0, d)) {
+			if s.After(now) {
+				return s
+			}
 		}
 	}
+	return now.Add(6 * time.Hour)
+}
+
+func (a *App) prevSlot(now time.Time) time.Time {
+	for d := 0; d < 3; d++ {
+		ss := a.slots(now.AddDate(0, 0, -d))
+		for i := len(ss) - 1; i >= 0; i-- {
+			if !ss[i].After(now) {
+				return ss[i]
+			}
+		}
+	}
+	return now.Add(-24 * time.Hour)
 }
 
 func (a *App) quoteLoop() {
@@ -404,7 +476,9 @@ func (a *App) scan() {
 	a.scanning = false
 	a.scanMsg = fmt.Sprintf("Last scan: %d new articles in %.0fs", added, time.Since(t0).Seconds())
 	a.lastScan = time.Now()
+	a.store.LastScan = a.lastScan
 	a.mu.Unlock()
+	a.saveStore()
 	a.saveCache()
 	log.Printf("scan done: +%d articles, total %d", added, len(a.articles))
 }
