@@ -1,1 +1,1 @@
-New 1D/5D intraday candles; new listings auto-switch to intraday charts.
+New IPOs tab: upcoming IPOs, recent debuts with first-day pop and lock-up dates, filings, IPO news, and IPO notifications.

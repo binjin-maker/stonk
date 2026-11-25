@@ -51,6 +51,9 @@ func routeFromArg(arg string) string {
 	if len(parts) >= 1 && parts[0] == "alerts" {
 		return "alerts"
 	}
+	if len(parts) >= 1 && parts[0] == "ipo" {
+		return "ipo"
+	}
 	return ""
 }
 

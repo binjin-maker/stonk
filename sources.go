@@ -113,6 +113,7 @@ func baseFeeds(cos []*Company) []Feed {
 		"short seller report", "credit rating downgrade company", "factory fire explosion company",
 		"Federal Reserve interest rates", "inflation report markets", "OPEC oil prices", "stock market today",
 		"European stocks", "Asian markets stocks", "China economy stocks", "emerging markets stocks",
+		"IPO priced", "IPO debut shares", "files for IPO", "IPO lock-up expiration", "upcoming IPOs",
 	} {
 		add("Google: "+q, "Google News (event searches)", gnSearch(q+" when:2d"))
 	}

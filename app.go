@@ -31,6 +31,7 @@ type Settings struct {
 	NotifyWatch  bool
 	Sensitivity  string
 	NoAutoUpdate bool
+	NoIPONotify  bool
 }
 
 type NotifRec struct {
@@ -73,6 +74,7 @@ type App struct {
 	nextScan  time.Time
 	trigger   chan struct{}
 	nav       string
+	ipo       *IPOData
 	saveMu    sync.Mutex
 	updStatus string
 }
@@ -223,6 +225,7 @@ func (a *App) Run() {
 	a.refreshQuotes(syms, 0)
 	a.analyze(false)
 	go a.quoteLoop()
+	go a.ipoLoop()
 	a.mu.RLock()
 	last := a.store.LastScan
 	a.mu.RUnlock()

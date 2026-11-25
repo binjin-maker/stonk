@@ -37,6 +37,7 @@ func (a *App) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/settings", a.hSettings)
 	mux.HandleFunc("/api/feedback", a.hFeedback)
 	mux.HandleFunc("/api/candles", a.hCandles)
+	mux.HandleFunc("/api/ipo", a.hIPO)
 	mux.HandleFunc("/api/nav", func(w http.ResponseWriter, r *http.Request) {
 		var req struct{ Hash string }
 		readJSON(r, &req)

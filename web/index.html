@@ -70,7 +70,7 @@ canvas{width:100%;display:block}
 .th{border:1px solid var(--ln);border-radius:10px;padding:10px 12px;background:var(--p1);margin-bottom:8px}
 .th .n{font-weight:700}.th.off{opacity:.5}
 .alert{display:flex;gap:10px;padding:9px 12px;border-radius:9px;border:1px solid var(--ln);background:var(--p1);margin-bottom:7px;cursor:pointer}
-.alert.bad{border-left:4px solid var(--dn)}.alert.good{border-left:4px solid var(--up)}
+.alert.bad{border-left:4px solid var(--dn)}.alert.info{border-left:4px solid var(--ac)}.alert.good{border-left:4px solid var(--up)}
 .empty{color:var(--mu);padding:20px;text-align:center}
 .spin{display:inline-block;width:10px;height:10px;border:2px solid var(--ac);border-top-color:transparent;border-radius:50%;animation:s 1s linear infinite}
 @keyframes s{to{transform:rotate(360deg)}}
@@ -105,7 +105,7 @@ footer{color:var(--mu);font-size:11px;text-align:center;padding:20px}
 <script>
 const $=s=>document.querySelector(s);
 let S=null,tab=localStorage.getItem('tab')||'dash',sortK={sig:['Expected',1]},evF={cls:'',dir:'',mine:false,q:''},sigF={q:'',sector:'',ol:''},lastAlertTop=null;
-const TABS=[['dash','Dashboard'],['port','My Portfolio'],['find','Find & Track'],['signals','All Signals'],['events','Events'],['world','World'],['theories','Theories'],['alerts','Alerts'],['sources','Sources'],['settings','Settings']];
+const TABS=[['dash','Dashboard'],['port','My Portfolio'],['find','Find & Track'],['signals','All Signals'],['events','Events'],['world','World'],['ipo','IPOs'],['theories','Theories'],['alerts','Alerts'],['sources','Sources'],['settings','Settings']];
 const TSHORT={news:'NEWS',box:'BOX THEORY',dow:'DOW THEORY',ma:'GOLDEN CROSS',rsi:'RSI',macd:'MACD',boll:'BOLLINGER',meanrev:'MEAN REVERSION',mom:'MOMENTUM',fib:'FIBONACCI',obv:'VOLUME/OBV',contra:'CONTRARIAN',candles:'CANDLES',emh:'EFFICIENT MKT'};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pct=(x,d=1)=>(x>=0?'+':'')+(+x).toFixed(d)+'%';
@@ -220,6 +220,28 @@ function world(){
   <div class="card"><h3>How world events are read</h3><div class="small mu">Seismo scans world news (Google News world editions, GDELT across 100+ countries, BBC, Al Jazeera, DW, Nikkei, SCMP, Economic Times and more) for macro events: central banks, inflation, tariffs, wars, oil, chip controls, recessions, disasters, crypto, banking stress, shipping chokepoints. Each one pushes on specific sectors, which flows into every company in that sector.</div></div></div>
   <div style="margin-top:14px">${(S.Macro||[]).map(evCard).join('')||''}</div>`}
 
+let IPOD=null,ipoAt=0,ipoBusy=false;
+async function loadIPO(force){if(ipoBusy)return;ipoBusy=true;try{const x=await api('/api/ipo'+(force?'?refresh=1':''));if(!x.Loading){IPOD=x;ipoAt=Date.now()}else setTimeout(()=>{if(tab==='ipo')loadIPO()},4000)}catch(e){}ipoBusy=false;if(tab==='ipo')render()}
+const bigM=v=>v>=1e12?'$'+(v/1e12).toFixed(2)+'T':v>=1e9?'$'+(v/1e9).toFixed(1)+'B':v>=1e6?'$'+(v/1e6).toFixed(0)+'M':v?money(v):'—';
+const dshort=t=>t&&!String(t).startsWith('0001')?new Date(t).toLocaleDateString(undefined,{month:'short',day:'numeric',year:new Date(t).getFullYear()!==new Date().getFullYear()?'numeric':undefined}):'—';
+function ipo(){
+  if(!IPOD||Date.now()-ipoAt>300000)loadIPO();
+  if(!IPOD)return '<div class="empty"><span class="spin"></span> Loading the IPO calendar…</div>';
+  const D=IPOD.Data,now=Date.now(),days=t=>Math.round((new Date(t)-now)/864e5);
+  const trk=t=>t?(tracked(t)?'<span class="pill y">TRACKING</span>':`<button class="sm" data-trk="${esc(t)}">Track</button>`)+` <button class="sm" data-inv="${esc(t)}">Invest</button>`:'';
+  const mega=(D.Recent||[]).filter(p=>p.Mega).slice(0,3);
+  const lock=p=>{if(!p.Lockup||String(p.Lockup).startsWith('0001'))return '—';const d=days(p.Lockup);return `${dshort(p.Lockup)} <span class="mu small">${d>=0?'in '+d+'d':'passed'}</span>`};
+  return `<div class="row" style="margin-bottom:12px"><span class="mu small">IPO calendar from Nasdaq · updated ${IPOD.Data.Updated?ago(IPOD.Data.Updated):'—'}${D.Err?' · <span class="dn">'+esc(D.Err)+'</span>':''}</span><span class="grow"></span><button class="sm" id="ipoRef">Refresh</button></div>
+  ${mega.length?`<div class="grid g3" style="margin-bottom:14px">${mega.map(p=>`<div class="card" data-t="${esc(p.Ticker)}" style="cursor:pointer;border-color:#5a4614"><h3 style="color:var(--ac)">Mega IPO · ${dshort(p.Date)}</h3><div class="row" style="align-items:baseline"><span class="big" style="font-size:24px">${esc(p.Ticker)}</span><span>${esc(p.Name)}</span></div>
+    <div class="kv" style="margin-top:8px"><div><span>IPO price</span><b>$${p.Price.toFixed(2)}</b></div><div><span>Raised</span><b>${bigM(p.Value)}</b></div><div><span>Day-1 close</span><b>${p.FirstClose?price(p.FirstClose)+' '+cpct(p.PopPct):'—'}</b></div><div><span>Now</span><b>${p.HasQuote?price(p.Last):'—'}</b></div><div><span>Since IPO</span><b>${p.HasQuote?cpct(p.SinceIPO):'—'}</b></div></div>
+    <div class="row" style="margin-top:8px">${spark(p.Spark,200,40)}<span class="grow"></span><span class="small mu">Lock-up ≈ ${lock(p)}</span></div><div class="row" style="margin-top:8px">${trk(p.Ticker)}</div></div>`).join('')}</div>`:''}
+  <div class="card" style="margin-bottom:14px"><h3>Upcoming IPOs</h3>${(D.Upcoming||[]).length?`<table><tr><th>Company</th><th>Expected</th><th class="num">Price range</th><th class="num">Shares</th><th class="num">Raising</th><th>Exchange</th><th></th></tr>${D.Upcoming.map(p=>`<tr><td><b class="mono">${esc(p.Ticker||'—')}</b> ${esc(p.Name)}${p.Mega?' <span class="pill y">MEGA</span>':''}</td><td>${dshort(p.Date)}${p.Date&&!String(p.Date).startsWith('0001')?` <span class="mu small">${days(p.Date)>=0?'in '+days(p.Date)+'d':''}</span>`:''}</td><td class="num">${esc(p.PriceRange||(p.Price?'$'+p.Price.toFixed(2):'—'))}</td><td class="num">${p.Shares?(p.Shares/1e6).toFixed(1)+'M':'—'}</td><td class="num">${bigM(p.Value)}</td><td class="small mu">${esc(p.Exchange)}</td><td>${p.Ticker?`<button class="sm" data-trk="${esc(p.Ticker)}">Watch</button>`:''}</td></tr>`).join('')}</table>`:'<div class="empty">Nothing on the calendar for the next few weeks yet. Deals usually get scheduled 1–2 weeks ahead. Seismo checks every 3 hours and notifies you about big ones.</div>'}</div>
+  <div class="card" style="margin-bottom:14px"><h3>Just listed (last 4 months)</h3>${(D.Recent||[]).length?`<table><tr><th>Company</th><th>IPO date</th><th class="num">IPO price</th><th class="num">Raised</th><th class="num">Day-1 close</th><th class="num">Now</th><th class="num">Since IPO</th><th>Lock-up ends ≈</th><th></th><th></th></tr>${D.Recent.map(p=>`<tr class="cl" data-t="${esc(p.Ticker)}"><td><b class="mono">${esc(p.Ticker)}</b> <span class="small">${esc(p.Name)}</span>${p.Mega?' <span class="pill y">MEGA</span>':''}</td><td>${dshort(p.Date)}</td><td class="num">${p.Price?'$'+p.Price.toFixed(2):'<span class="mu small">direct listing</span>'}</td><td class="num">${bigM(p.Value)}</td><td class="num">${p.FirstClose?price(p.FirstClose)+(p.Price?' '+cpct(p.PopPct):''):'—'}</td><td class="num">${p.HasQuote?price(p.Last)+' '+cpct(p.DayPct,2):'—'}</td><td class="num">${p.HasQuote&&p.Price?cpct(p.SinceIPO):'—'}</td><td>${lock(p)}</td><td>${spark(p.Spark,90,24)}</td><td>${trk(p.Ticker)}</td></tr>`).join('')}</table>`:'<div class="empty">No recent IPOs found.</div>'}
+   <div class="mu small" style="margin-top:8px">Lock-up ≈ 180 days after the IPO, when insiders and early investors are first allowed to sell. New stocks often wobble around then. Check the prospectus for the exact date.</div></div>
+  <div class="grid g2"><div class="card"><h3>Recently filed to go public</h3>${(D.Filed||[]).length?`<table><tr><th>Company</th><th>Filed</th><th class="num">Target raise</th></tr>${D.Filed.map(p=>`<tr><td><b class="mono">${esc(p.Ticker||'—')}</b> <span class="small">${esc(p.Name)}</span></td><td>${dshort(p.Filed)}</td><td class="num">${bigM(p.Value)}</td></tr>`).join('')}</table>`:'<div class="empty">None in the last 2 months.</div>'}
+   ${(D.Withdrawn||[]).length?`<h3 style="margin-top:14px">Withdrawn / cancelled</h3><table>${D.Withdrawn.map(p=>`<tr><td class="small">${esc(p.Name)}</td><td class="small mu">${dshort(p.Withdrawn)}</td><td class="num small">${bigM(p.Value)}</td></tr>`).join('')}</table>`:''}</div>
+   <div class="card"><h3>IPO headlines</h3>${(IPOD.News||[]).length?`<ul style="margin:0;padding-left:18px;font-size:13px">${IPOD.News.map(a=>`<li style="margin:4px 0"><a href="${esc(a.URL)}" target="_blank" rel="noopener">${esc(a.Title)}</a> <span class="mu">— ${esc(a.Source)}, ${ago(a.Published)}</span></li>`).join('')}</ul>`:'<div class="empty">IPO news will show up here after the next scan.</div>'}</div></div>`}
+
 function theories(){const en=enabledTheories();return `<div class="card" style="margin-bottom:14px"><h3>Pick the theories you want to see</h3><div class="mu small">Checked theories show up as chips everywhere (portfolio, company pages, signals) and are combined into a consensus vote. Each is computed live from a year of price and volume data plus the news model.</div><div class="row" style="margin-top:10px"><button class="sm" id="thAll">All</button><button class="sm" id="thNone">None</button><button class="sm" id="thChart">Chart-only</button></div></div>
   ${S.TheoryCatalog.map(t=>`<div class="th ${en.includes(t.ID)?'':'off'}"><label class="toggle"><input type="checkbox" data-th="${t.ID}" ${en.includes(t.ID)?'checked':''}> <span class="n">${esc(t.Name)}</span> <span class="chip">${TSHORT[t.ID]}</span></label><div class="small mu" style="margin-top:4px">${esc(t.Explain)}</div></div>`).join('')}`}
 
@@ -233,6 +255,7 @@ function settings(){const st=S.Settings;return `<div class="card" style="max-wid
   <div class="mu small" style="margin-top:-10px">4 full worldwide scans a day. Missed ones (PC asleep/off) run as soon as it's back. Prices and price alerts for your stocks still refresh every 90 seconds.</div>
   <label class="toggle" style="text-transform:none;font-size:14px;color:var(--tx)"><input type="checkbox" id="stN" ${st.NotifyOn?'checked':''}> Windows notifications for big events</label>
   <label class="toggle" style="text-transform:none;font-size:14px;color:var(--tx)"><input type="checkbox" id="stW" ${st.NotifyWatch?'checked':''}> Also notify for watchlist stocks</label>
+  <label class="toggle" style="text-transform:none;font-size:14px;color:var(--tx)"><input type="checkbox" id="stI" ${st.NoIPONotify?'':'checked'}> Notify about big upcoming IPOs, mega debuts and lock-up expiries</label>
   <label>Alert sensitivity<select id="stS">${['low','normal','high'].map(x=>`<option ${st.Sensitivity===x?'selected':''}>${x}</option>`).join('')}</select></label>
   <label class="toggle" style="text-transform:none;font-size:14px;color:var(--tx)"><input type="checkbox" id="stU" ${S.Startup?'checked':''}> Start with Windows (runs in background 24/7)</label>
   <label class="toggle" style="text-transform:none;font-size:14px;color:var(--tx)"><input type="checkbox" id="stA" ${st.NoAutoUpdate?'':'checked'}> Auto-update from GitHub</label>
@@ -241,7 +264,7 @@ function settings(){const st=S.Settings;return `<div class="card" style="max-wid
   <button class="pri" id="stSave">Save</button>
   <div style="border-top:1px solid var(--ln);padding-top:14px;width:100%"><div class="mu small" style="margin-bottom:8px">Seismo keeps running in the background after you close this tab. Run the exe again to reopen this window. To stop it completely:</div><button class="dng" id="quit">Quit Seismo</button></div></div></div>`}
 
-function render(){if(!S)return;renderNav();renderTop();const f={dash,port,find,signals,events,world,theories,alerts,sources,settings}[tab]||dash;
+function render(){if(!S)return;renderNav();renderTop();const f={dash,port,find,signals,events,world,ipo,theories,alerts,sources,settings}[tab]||dash;
   const keep=document.activeElement&&document.activeElement.id,sel=keep&&document.activeElement.selectionStart;
   if(tab==='find'&&$('#fQ')){return}
   if(tab==='port'&&$('#hT')){const v={T:$('#hT').value,I:$('#hI').value,S:$('#hS').value,P:$('#hP').value};$('#main').innerHTML=f();$('#hT').value=v.T;$('#hI').value=v.I;$('#hS').value=v.S;$('#hP').value=v.P}
@@ -266,8 +289,9 @@ function bind(){
   if(tab==='signals'){$('#sQ').oninput=e=>{sigF.q=e.target.value;render()};$('#sSec').onchange=e=>{sigF.sector=e.target.value;render()};$('#sOl').onchange=e=>{sigF.ol=e.target.value;render()};m.querySelectorAll('th[data-s]').forEach(th=>th.onclick=()=>{const k=th.dataset.s;sortK.sig=[k,sortK.sig[0]===k?-sortK.sig[1]:1];render()})}
   if(tab==='events'){$('#eQ').oninput=e=>{evF.q=e.target.value;render()};$('#eC').onchange=e=>{evF.cls=e.target.value;render()};$('#eD').onchange=e=>{evF.dir=e.target.value;render()};$('#eM').onchange=e=>{evF.mine=e.target.checked;render()}}
   if(tab==='theories'){const save=async ids=>{S.Settings.Theories=ids;await api('/api/settings',S.Settings);render()};m.querySelectorAll('[data-th]').forEach(c=>c.onchange=()=>save([...m.querySelectorAll('[data-th]:checked')].map(x=>x.dataset.th)));$('#thAll').onclick=()=>save(S.TheoryCatalog.map(t=>t.ID));$('#thNone').onclick=()=>save([]);$('#thChart').onclick=()=>save(['box','dow','ma','rsi','macd','boll','fib','obv'])}
+  if(tab==='ipo'&&$('#ipoRef')){$('#ipoRef').onclick=()=>{$('#ipoRef').innerHTML='<span class="spin"></span>';loadIPO(true)}}
   if(tab==='alerts'){$('#tN').onclick=()=>{api('/api/testnotify',{});flash('Test notification sent')};$('#aC').onclick=async()=>{await api('/api/alerts/clear',{});refresh()}}
-  if(tab==='settings'){$('#stSave').onclick=async()=>{const s={...S.Settings,ScanTimes:[...document.querySelectorAll('.stT')].map(x=>x.value).filter(Boolean),NotifyOn:$('#stN').checked,NotifyWatch:$('#stW').checked,Sensitivity:$('#stS').value,NoAutoUpdate:!$('#stA').checked};await api('/api/settings',s);if($('#stU').checked!==S.Startup)await api('/api/startup',{On:$('#stU').checked}).catch(e=>flash(e.message));flash('Saved');refresh()};$('#stUpd').onclick=()=>{api('/api/update',{});flash('Checking GitHub for updates…');setTimeout(refresh,4000)};$('#stRst')&&($('#stRst').onclick=()=>twoClick($('#stRst'),'Forget all corrections?',async()=>{await api('/api/feedback',{Action:'reset'});refresh()}));$('#quit').onclick=()=>twoClick($('#quit'),'Stop tracking & quit?',async()=>{await api('/api/quit',{});if(window.closeWindow){window.closeWindow();return}document.body.innerHTML='<div class="empty" style="padding:80px">Seismo has stopped. Run the exe again to restart it.</div>'})}
+  if(tab==='settings'){$('#stSave').onclick=async()=>{const s={...S.Settings,ScanTimes:[...document.querySelectorAll('.stT')].map(x=>x.value).filter(Boolean),NotifyOn:$('#stN').checked,NotifyWatch:$('#stW').checked,Sensitivity:$('#stS').value,NoAutoUpdate:!$('#stA').checked,NoIPONotify:!$('#stI').checked};await api('/api/settings',s);if($('#stU').checked!==S.Startup)await api('/api/startup',{On:$('#stU').checked}).catch(e=>flash(e.message));flash('Saved');refresh()};$('#stUpd').onclick=()=>{api('/api/update',{});flash('Checking GitHub for updates…');setTimeout(refresh,4000)};$('#stRst')&&($('#stRst').onclick=()=>twoClick($('#stRst'),'Forget all corrections?',async()=>{await api('/api/feedback',{Action:'reset'});refresh()}));$('#quit').onclick=()=>twoClick($('#quit'),'Stop tracking & quit?',async()=>{await api('/api/quit',{});if(window.closeWindow){window.closeWindow();return}document.body.innerHTML='<div class="empty" style="padding:80px">Seismo has stopped. Run the exe again to restart it.</div>'})}
   document.querySelectorAll('.alert[data-t]').forEach(e=>e.onclick=()=>e.dataset.t&&openCo(e.dataset.t));
 }
 
@@ -485,7 +509,7 @@ async function refresh(){try{S=await api('/api/state');lostCount=0;if(lastVer&&S
   render()}catch(e){lostCount++;$('#scan').textContent=lostCount>3?'Seismo has stopped. Reopen it from the Start menu or the exe.':'Reconnecting…'}}
 function loop(){refresh().finally(()=>setTimeout(loop,S&&S.Scanning?3000:15000))}
 $('#scanBtn').onclick=()=>{api('/api/scan',{});flash('Scan started');setTimeout(refresh,800)};
-function hashRoute(){const h=location.hash;if(h.startsWith('#t='))openCo(decodeURIComponent(h.slice(3)));else if(h==='#alerts')setTab('alerts')}
+function hashRoute(){const h=location.hash;if(h.startsWith('#t='))openCo(decodeURIComponent(h.slice(3)));else if(h==='#alerts')setTab('alerts');else if(h==='#ipo'){closeCo();setTab('ipo')}}
 window.addEventListener('hashchange',()=>{if(location.hash.startsWith('#t=')&&$('#modal').style.display!=='block')hashRoute()});
 loop();setTimeout(hashRoute,600);
 </script>
