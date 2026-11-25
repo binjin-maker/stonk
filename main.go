@@ -71,5 +71,19 @@ func main() {
 		go toast("Seismo is watching the markets", "Running in the background. You'll be notified about big events on your stocks.", appURL())
 	}
 	log.Println("listening on", appURL())
-	log.Fatal(http.Serve(ln, mux))
+	mainMux = mux
+	serveOn(ln)
+	for restarting.Load() {
+		time.Sleep(time.Second)
+	}
+	select {}
+}
+
+var mainMux *http.ServeMux
+
+func serveOn(l net.Listener) {
+	err := http.Serve(l, mainMux)
+	if !restarting.Load() {
+		log.Println("server stopped:", err)
+	}
 }

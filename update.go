@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -20,6 +21,7 @@ const updRepo = "binjin-maker/stonk"
 const assetName = "Seismo.ex_"
 
 var listener net.Listener
+var restarting atomic.Bool
 
 type relInfo struct {
 	Tag, URL, Notes string
@@ -134,13 +136,21 @@ func (a *App) checkUpdate(install bool) {
 	notes := strings.TrimSpace(strings.SplitN(rel.Notes, "\n", 2)[0])
 	os.WriteFile(filepath.Join(appDir, "updated.txt"), []byte(rel.Tag+"\n"+notes), 0644)
 	log.Printf("updated to %s, restarting", rel.Tag)
+	restarting.Store(true)
 	if listener != nil {
 		listener.Close()
 	}
 	cmd := exec.Command(exe, "--background", "--updated")
 	cmd.Dir = filepath.Dir(exe)
 	if err := cmd.Start(); err != nil {
-		a.setUpd("Restart failed: " + err.Error())
+		os.Rename(exe, newp)
+		os.Rename(oldp, exe)
+		if l, err2 := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port)); err2 == nil {
+			listener = l
+			restarting.Store(false)
+			go serveOn(l)
+		}
+		a.setUpd("Restart failed, kept the old version: " + err.Error())
 		return
 	}
 	os.Exit(0)
