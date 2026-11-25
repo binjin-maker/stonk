@@ -1,1 +1,1 @@
-Candlestick charts with wicks + pattern detection, inline Edit, Remove all investments.
+New 1D/5D intraday candles; new listings auto-switch to intraday charts.

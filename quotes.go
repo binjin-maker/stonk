@@ -29,6 +29,7 @@ type Quote struct {
 	Volumes  []float64 `json:"-"`
 	Times    []int64   `json:"-"`
 	Currency string
+	Listed   int64
 	Fetched  time.Time
 	OK       bool
 	Err      string
@@ -72,6 +73,7 @@ func fetchYahoo(sym, host string) *Quote {
 					RegularMarketTime  int64
 					Gmtoffset          int64
 					LongName           string
+					FirstTradeDate     int64
 					ShortName          string
 				}
 				Timestamp  []int64
@@ -93,6 +95,7 @@ func fetchYahoo(sym, host string) *Quote {
 	}
 	res := r.Chart.Result[0]
 	q.Currency = res.Meta.Currency
+	q.Listed = res.Meta.FirstTradeDate
 	q.Name = firstNonEmpty(res.Meta.LongName, res.Meta.ShortName)
 	var closes, opens, highs, lows, vols []float64
 	var ts []int64
@@ -208,6 +211,8 @@ func fill(q *Quote, closes []float64) {
 	}
 	if n > 5 {
 		q.R5 = (q.Price/closes[n-6] - 1) * 100
+	} else if n > 1 {
+		q.R5 = (q.Price/closes[0] - 1) * 100
 	}
 	if n > 21 {
 		q.R20 = (q.Price/closes[n-22] - 1) * 100
