@@ -21,7 +21,7 @@ const port = 47823
 var appDir string
 
 func main() {
-	background, updated, window, winArg := false, false, false, ""
+	background, updated, window, winArg, reopen := false, false, false, "", false
 	for i, a := range os.Args[1:] {
 		if a == "--window" {
 			window = true
@@ -34,6 +34,9 @@ func main() {
 		}
 		if a == "--updated" {
 			updated = true
+		}
+		if a == "--reopen" {
+			reopen = true
 		}
 	}
 	base, err := os.UserConfigDir()
@@ -70,7 +73,7 @@ func main() {
 	app.Load()
 	go app.Run()
 	go app.updateLoop()
-	go postUpdateCleanup()
+	go postUpdateCleanup(reopen)
 	go registerProtocol()
 	startTray(app)
 	sub, _ := fs.Sub(webFS, "web")

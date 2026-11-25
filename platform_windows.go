@@ -59,3 +59,36 @@ func setStartup(on bool) error {
 	}
 	return hidden(exec.Command("reg", "add", runKey, "/v", "Seismo", "/t", "REG_SZ", "/d", `"`+exe+`" --background`, "/f")).Run()
 }
+
+func psQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }
+
+func windowOpen() bool { return findAppWindow() != 0 }
+
+func applyUpdate(exe, newp, oldp string, reopen bool) error {
+	args := "'--background','--updated'"
+	if reopen {
+		args += ",'--reopen'"
+	}
+	ps := `$ErrorActionPreference='SilentlyContinue';$exe=` + psQuote(exe) + `;$new=` + psQuote(newp) + `;$old=` + psQuote(oldp) + `;$me=` + fmt.Sprint(os.Getpid()) + `;
+for($i=0;$i -lt 20;$i++){ if(-not (Get-Process -Id $me)){break}; Start-Sleep -Milliseconds 300 }
+Get-Process | Where-Object { $_.Path -eq $exe } | Stop-Process -Force
+$ok=$false
+for($i=0;$i -lt 60;$i++){
+  try {
+    if(Test-Path -LiteralPath $old){ Remove-Item -LiteralPath $old -Force -ErrorAction Stop }
+    Move-Item -LiteralPath $exe -Destination $old -Force -ErrorAction Stop
+    try { Move-Item -LiteralPath $new -Destination $exe -Force -ErrorAction Stop; $ok=$true; break }
+    catch { Move-Item -LiteralPath $old -Destination $exe -Force; throw }
+  } catch { Start-Sleep -Milliseconds 500; Get-Process | Where-Object { $_.Path -eq $exe } | Stop-Process -Force }
+}
+if(-not $ok){ try { Copy-Item -LiteralPath $new -Destination $exe -Force -ErrorAction Stop; $ok=$true } catch {} }
+Start-Process -FilePath $exe -ArgumentList ` + args + ` -WorkingDirectory (Split-Path -LiteralPath $exe)`
+	u := utf16.Encode([]rune(ps))
+	b := make([]byte, len(u)*2)
+	for i, c := range u {
+		b[2*i], b[2*i+1] = byte(c), byte(c>>8)
+	}
+	cmd := hidden(exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-EncodedCommand", base64.StdEncoding.EncodeToString(b)))
+	cmd.SysProcAttr.CreationFlags |= 0x00000008 | 0x00000200
+	return cmd.Start()
+}

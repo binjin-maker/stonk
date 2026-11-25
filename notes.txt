@@ -1,1 +1,1 @@
-New IPOs tab: upcoming IPOs, recent debuts with first-day pop and lock-up dates, filings, IPO news, and IPO notifications.
+Fixed auto-update on Windows (no more 'Access is denied').

@@ -7,7 +7,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -121,17 +120,6 @@ func (a *App) checkUpdate(install bool) {
 		a.setUpd("Update failed: can't write next to the exe (" + err.Error() + ")")
 		return
 	}
-	os.Remove(oldp)
-	if err := os.Rename(exe, oldp); err != nil {
-		os.Remove(newp)
-		a.setUpd("Update failed: " + err.Error())
-		return
-	}
-	if err := os.Rename(newp, exe); err != nil {
-		os.Rename(oldp, exe)
-		a.setUpd("Update failed: " + err.Error())
-		return
-	}
 	a.saveStore()
 	a.saveCache()
 	if sb, err := os.ReadFile(filepath.Join(appDir, "store.json")); err == nil && json.Valid(sb) {
@@ -139,25 +127,19 @@ func (a *App) checkUpdate(install bool) {
 	}
 	notes := strings.TrimSpace(strings.SplitN(rel.Notes, "\n", 2)[0])
 	os.WriteFile(filepath.Join(appDir, "updated.txt"), []byte(rel.Tag+"\n"+notes), 0644)
-	log.Printf("updated to %s, restarting", rel.Tag)
+	log.Printf("installing %s via helper", rel.Tag)
+	a.setUpd("Installing v" + rel.Tag + "… Seismo will restart in a few seconds")
+	if err := applyUpdate(exe, newp, oldp, windowOpen()); err != nil {
+		os.Remove(newp)
+		a.setUpd("Update failed: " + err.Error())
+		return
+	}
 	restarting.Store(true)
 	stopTray()
 	if listener != nil {
 		listener.Close()
 	}
-	cmd := exec.Command(exe, "--background", "--updated")
-	cmd.Dir = filepath.Dir(exe)
-	if err := cmd.Start(); err != nil {
-		os.Rename(exe, newp)
-		os.Rename(oldp, exe)
-		if l, err2 := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port)); err2 == nil {
-			listener = l
-			restarting.Store(false)
-			go serveOn(l)
-		}
-		a.setUpd("Restart failed, kept the old version: " + err.Error())
-		return
-	}
+	time.Sleep(300 * time.Millisecond)
 	os.Exit(0)
 }
 
@@ -172,12 +154,16 @@ func (a *App) updateLoop() {
 	}
 }
 
-func postUpdateCleanup() {
+func postUpdateCleanup(reopen bool) {
+	if reopen {
+		go spawnWindow("")
+	}
 	exe, err := os.Executable()
 	if err != nil {
 		return
 	}
 	oldp := strings.TrimSuffix(exe, filepath.Ext(exe)) + ".old"
+	os.Remove(exe + ".new")
 	for i := 0; i < 10; i++ {
 		if os.Remove(oldp) == nil || os.IsNotExist(func() error { _, e := os.Stat(oldp); return e }()) {
 			break
@@ -192,6 +178,6 @@ func postUpdateCleanup() {
 		if len(parts) > 1 && strings.TrimSpace(parts[1]) != "" {
 			body = strings.TrimSpace(parts[1])
 		}
-		toast(fmt.Sprintf("Seismo updated to v%s", parts[0]), body, appURL())
+		toast(fmt.Sprintf("Seismo updated to v%s", parts[0]), body, "seismo://open")
 	}
 }
